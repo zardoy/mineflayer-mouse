@@ -1,0 +1,17 @@
+{
+    "name": "mineflayer-mouse",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT",
+    "scripts": {},
+    "packageManager": "pnpm@10.2.0",
+    "dependencies": {},
+    "devDependencies": {
+        "prismarine-block": "^1.21.0",
+        "typescript": "^5.7.3",
+        "vec3": "^0.1.10",
+        "@zardoy/tsconfig": "^1.5.1",
+        "mineflayer": "^4.26.0",
+        "prismarine-entity": "^2.5.0"
+    }
+}
