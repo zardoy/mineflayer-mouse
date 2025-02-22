@@ -1,10 +1,12 @@
 {
     "name": "mineflayer-mouse",
-    "version": "0.0.0",
-    "private": true,
+    "version": "0.0.0-dev",
     "license": "MIT",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
     "scripts": {
         "watch": "tsc --watch",
         "build": "tsc"

@@ -7,12 +7,12 @@ import { isItemActivatable } from './itemBlocksStatic'
 import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
 
-interface BlockInteractionHandler {
+export interface BlockInteractionHandler {
   test: (block: Block) => boolean
   handle: (block: Block, bot: Bot) => void
 }
 
-interface ItemUseState {
+export interface ItemUseState {
   item: { name: string }
   isOffhand: boolean
   name: string
@@ -30,6 +30,13 @@ const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
       await bot.sleep(block)
     }
   }
+}
+
+export interface CursorState {
+  cursorBlock: Block | null
+  cursorBlockDiggable: Block | null
+  cursorChanged: boolean
+  entity: Entity | null
 }
 
 export class MouseManager {
@@ -111,10 +118,6 @@ export class MouseManager {
           this.buttons[0] = true
           this.update()
         }
-        const shapes = [...block.shapes ?? [], ...block['interactionShapes'] ?? []]
-        const mergedShape = this.getMergedShape(shapes)
-        const shapeData = mergedShape ? this.getDataFromShape(mergedShape) : undefined
-        this.bot.emit('blockBreakProgress', block, destroyStage, shapeData)
       }
     })
 
@@ -189,22 +192,34 @@ export class MouseManager {
 
   update() {
     this.beforeUpdateChecks()
-    const { cursorBlock, cursorBlockDiggable, cursorChanged } = this.getCursorState()
+    const { cursorBlock, cursorBlockDiggable, cursorChanged, entity } = this.getCursorState()
 
     // Handle item deactivation
     if (this.itemBeingUsed && !this.buttons[2]) {
       this.stopUsingItem()
     }
 
-    if (this.buttons[2] && this.lastBlockPlaced >= 4) {
-      this.updatePlaceInteract(cursorBlock)
+    // Handle entity interactions
+    if (entity) {
+      if (this.buttons[0] && !this.lastButtons[0]) {
+        // Left click - attack
+        this.bot.attack(entity)
+      } else if (this.buttons[2] && !this.lastButtons[2]) {
+        // Right click - interact
+        this.activateEntity(entity)
+      }
+    } else {
+      if (this.buttons[2] && this.lastBlockPlaced >= 4) {
+        this.updatePlaceInteract(cursorBlock)
+      }
+
+      this.updateBreaking(cursorBlock, cursorBlockDiggable, cursorChanged)
     }
 
-    this.updateBreaking(cursorBlock, cursorBlockDiggable, cursorChanged)
     this.updateButtonStates()
   }
 
-  private getCursorState() {
+  getCursorState(): CursorState {
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
     const entity = raycastEntity(this.bot)
@@ -231,7 +246,7 @@ export class MouseManager {
       this.bot.emit('highlightCursorBlock', cursorBlock ? { block: cursorBlock, shapes } : undefined)
     }
 
-    return { cursorBlock, cursorBlockDiggable, cursorChanged }
+    return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
   }
 
   private updatePlaceInteract(cursorBlock: Block | null) {
@@ -334,12 +349,38 @@ export class MouseManager {
     const onGround = this.bot.entity.onGround || this.bot.game.gameMode === 'creative'
     this.prevOnGround ??= onGround
 
+    this.updateBreakingBlockState(cursorBlockDiggable)
+
     // Start break
     if (this.buttons[0]) {
       this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, onGround)
     }
 
     this.prevOnGround = onGround
+  }
+
+  private updateBreakingBlockState(cursorBlockDiggable: Block | null) {
+    // Calculate and emit break progress
+    if (cursorBlockDiggable && this.breakStartTime && this.bot.game.gameMode !== 'creative') {
+      const elapsed = performance.now() - this.breakStartTime
+      const time = this.bot.digTime(cursorBlockDiggable)
+      if (time !== this.currentDigTime) {
+        console.warn('dig time changed! cancelling!', time, 'from', this.currentDigTime)
+        try {
+          this.bot.stopDigging()
+          this.bot.emit('blockBreakProgress', cursorBlockDiggable, null)
+        } catch { }
+      } else {
+        const state = Math.floor((elapsed / time) * 10)
+        if (state !== this.prevBreakState) {
+          const shapes = [...cursorBlockDiggable.shapes ?? [], ...cursorBlockDiggable['interactionShapes'] ?? []]
+          const mergedShape = this.getMergedShape(shapes)
+          const shapeData = mergedShape ? this.getDataFromShape(mergedShape) : undefined
+          this.bot.emit('blockBreakProgress', cursorBlockDiggable, Math.min(state, 9), shapeData)
+        }
+        this.prevBreakState = state
+      }
+    }
   }
 
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
@@ -361,6 +402,9 @@ export class MouseManager {
     this.debugDigStatus = 'breaking'
     this.currentDigTime = this.bot.digTime(block)
     this.breakStartTime = performance.now()
+
+    // Reset break state when starting new break
+    this.prevBreakState = null
 
     const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
     this.bot.dig(
