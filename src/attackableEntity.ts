@@ -3,6 +3,7 @@ import { IndexedData, Entity as EntityData } from 'minecraft-data'
 import { snakeCase } from 'change-case'
 import entitiesStaticData from './entityData.json'
 import Debug from 'debug'
+import { debug } from './debug'
 
 // TODO support REDIRECTABLE_PROJECTILE
 

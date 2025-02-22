@@ -1,6 +1,6 @@
 import { Bot } from 'mineflayer'
-import { inject } from './mouse'
+import { BotPluginSettings, inject } from './mouse'
 
-export const createMouse = (bot: Bot) => {
-  return inject(bot)
+export const createMouse = (settings: BotPluginSettings) => {
+  return (bot: Bot) => inject(bot, settings)
 }

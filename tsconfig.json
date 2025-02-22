@@ -4,7 +4,7 @@
         "target": "ES2022",
         "noEmit": false,
         "declaration": true,
-        "outDir": "build",
+        "outDir": "dist",
         "module": "CommonJS",
         "esModuleInterop": true,
         "resolveJsonModule": true

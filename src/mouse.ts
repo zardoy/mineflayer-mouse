@@ -3,17 +3,36 @@ import { Vec3 } from 'vec3'
 import { Entity } from 'prismarine-entity'
 import { Block } from 'prismarine-block'
 import { EventEmitter } from 'events'
-import { isItemActivatable, isBlockActivatable } from './itemBlocksStatic'
+import { isItemActivatable } from './itemBlocksStatic'
 import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
 
-interface MouseEvents {
-  'blockBreakProgress': (block: Block, stage: number) => void
-  'blockBreakAborted': (block: Block) => void
-  'armSwing': (hand: 'right' | 'left') => void
+interface BlockInteractionHandler {
+  test: (block: Block) => boolean
+  handle: (block: Block, bot: Bot) => void
 }
 
-class MouseManager {
+interface ItemUseState {
+  item: { name: string }
+  isOffhand: boolean
+  name: string
+}
+
+export interface BotPluginSettings {
+  blockInteractionHandlers?: Record<string, BlockInteractionHandler>
+}
+
+const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
+  bed: {
+    test: (block) => block.name === 'bed' || block.name.endsWith('_bed'),
+    handle: async (block, bot) => {
+      bot.emit('goingToSleep', block)
+      await bot.sleep(block)
+    }
+  }
+}
+
+export class MouseManager {
   cursorBlock: Block | null = null
   prevBreakState: number | null = null
   currentDigTime: number | null = null
@@ -30,14 +49,21 @@ class MouseManager {
   swingTimeout: any = null
   // todo clear when got a packet from server
   brokenBlocks: Block[] = []
+  private blockHandlers: Record<string, BlockInteractionHandler>
+  itemBeingUsed: ItemUseState | null = null
 
-  constructor(private bot: Bot) {
+  constructor(private bot: Bot, public settings: BotPluginSettings = {}) {
+    this.blockHandlers = {
+      ...defaultBlockHandlers,
+      ...(settings.blockInteractionHandlers ?? {})
+    }
     this.initBotEvents()
   }
 
   private initBotEvents() {
     this.bot.on('physicsTick', () => {
       if (this.lastBlockPlaced < 4) this.lastBlockPlaced++
+      this.update()
     })
 
     this.bot.on('diggingCompleted', (block) => {
@@ -46,7 +72,8 @@ class MouseManager {
       this.lastDigged = Date.now()
       this.debugDigStatus = 'done'
       this.brokenBlocks = [...this.brokenBlocks.slice(-5), block]
-      // this.bot.emit('blockBreakComplete', block)
+      // Hide breaking animation when complete
+      this.bot.emit('blockBreakProgress', block, null)
     })
 
     this.bot.on('diggingAborted', (block) => {
@@ -59,6 +86,8 @@ class MouseManager {
         this.buttons[0] = true // trigger again
       }
       this.lastDugBlock = null
+      // Hide breaking animation when aborted
+      this.bot.emit('blockBreakProgress', block, null)
     })
 
     // Add new event listeners for block breaking and swinging
@@ -114,6 +143,12 @@ class MouseManager {
         }
       }
     })
+
+    this.bot.on('heldItemChanged' as any, () => {
+      if (this.itemBeingUsed && !this.itemBeingUsed.isOffhand) {
+        this.stopUsingItem()
+      }
+    })
   }
 
   activateEntity(entity: Entity) {
@@ -151,9 +186,26 @@ class MouseManager {
 
   update() {
     this.beforeUpdateChecks()
+    const { cursorBlock, cursorBlockDiggable, cursorChanged } = this.getCursorState()
+
+    // Handle item deactivation
+    if (this.itemBeingUsed && !this.buttons[2]) {
+      this.stopUsingItem()
+    }
+
+    if (this.buttons[2] && this.lastBlockPlaced >= 4) {
+      this.updatePlaceInteract(cursorBlock)
+    }
+
+    this.updateBreaking(cursorBlock, cursorBlockDiggable, cursorChanged)
+    this.updateButtonStates()
+  }
+
+  private getCursorState() {
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
     const entity = raycastEntity(this.bot)
+
     let _cursorBlock = this.bot.blockAtCursor(5)
     if (entity) {
       _cursorBlock = null
@@ -162,52 +214,118 @@ class MouseManager {
     const { cursorBlock } = this
 
     let cursorBlockDiggable = cursorBlock
-    if (cursorBlock && (!this.bot.canDigBlock(cursorBlock) || inAdventure) && this.bot.game.gameMode !== 'creative') cursorBlockDiggable = null
-
-    const cursorChanged = cursorBlock && this.cursorBlock ? !this.cursorBlock.position.equals(cursorBlock.position) : this.cursorBlock !== cursorBlock
-
-    // Place / interact / activate
-    if (this.buttons[2] && this.lastBlockPlaced >= 4) {
-      if (cursorBlock) {
-        const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
-        //@ts-ignore
-        const delta = cursorBlock.intersect.minus(cursorBlock.position)
-
-        if (this.bot.heldItem && isItemActivatable(this.bot.heldItem.name)) {
-          //@ts-ignore
-          this.bot._placeBlockWithOptions(cursorBlock, vecArray[cursorBlock.face], { delta, forceLook: 'ignore' }).catch(console.warn)
-        } else if (cursorBlock && isBlockActivatable(cursorBlock.name)) {
-          // Handle activatable block
-          //@ts-ignore
-          this.bot.activateBlock(cursorBlock, vecArray[cursorBlock.face], delta).finally(() => {
-            this.bot.lookAt = oldLookAt // ?
-          }).catch(console.warn)
-        } else {
-          const oldLookAt = this.bot.lookAt
-          //@ts-ignore
-          this.bot.lookAt = (pos) => { }
-          //@ts-ignore
-          this.bot.activateBlock(cursorBlock, vecArray[cursorBlock.face], delta).finally(() => {
-            this.bot.lookAt = oldLookAt
-          }).catch(console.warn)
-        }
-        this.bot.emit('botArmSwingStart', 'right')
-      }
-      this.lastBlockPlaced = 0
+    if (cursorBlock && (!this.bot.canDigBlock(cursorBlock) || inAdventure) && this.bot.game.gameMode !== 'creative') {
+      cursorBlockDiggable = null
     }
 
+    const cursorChanged = cursorBlock && this.cursorBlock ?
+      !this.cursorBlock.position.equals(cursorBlock.position) :
+      this.cursorBlock !== cursorBlock
+
+    if (cursorChanged) {
+      const shapes = cursorBlock ? [...cursorBlock.shapes ?? [], ...cursorBlock['interactionShapes'] ?? []]
+        .map(shape => this.getDataFromShape(shape)) : []
+      this.bot.emit('highlightCursorBlock', cursorBlock ? { block: cursorBlock, shapes } : undefined)
+    }
+
+    return { cursorBlock, cursorBlockDiggable, cursorChanged }
+  }
+
+  private updatePlaceInteract(cursorBlock: Block | null) {
+    if (!cursorBlock) return
+
+    const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
+    //@ts-ignore
+    const delta = cursorBlock.intersect.minus(cursorBlock.position)
+
+    // Check for special block handlers first
+    let handled = false
+    if (!this.bot.getControlState('sneak')) {
+      for (const handler of Object.values(this.blockHandlers)) {
+        if (handler.test(cursorBlock)) {
+          try {
+            handler.handle(cursorBlock, this.bot)
+            handled = true
+            break
+          } catch (err) {
+            this.bot.emit('error', err)
+          }
+        }
+      }
+    }
+
+    const activate = this.bot.heldItem && isItemActivatable(this.bot.heldItem.name)
+
+    if (cursorBlock && !activate && !handled) {
+      if (this.bot.heldItem) {
+        //@ts-ignore
+        this.bot._placeBlockWithOptions(cursorBlock, vecArray[cursorBlock.face], { delta, forceLook: 'ignore' })
+          .catch(console.warn)
+      } else {
+        const oldLookAt = this.bot.lookAt
+        //@ts-ignore
+        this.bot.lookAt = (pos) => { }
+        //@ts-ignore
+        this.bot.activateBlock(cursorBlock, vecArray[cursorBlock.face], delta)
+          .finally(() => {
+            this.bot.lookAt = oldLookAt
+          })
+          .catch(console.warn)
+      }
+      this.bot.emit('botArmSwingStart', 'right')
+      this.bot.emit('botArmSwingEnd', 'right')
+    } else if (!handled) {
+      const offhand = activate ? false : isItemActivatable(this.bot.inventory.slots[45]?.name ?? '')
+      this.bot.activateItem(offhand)
+      const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
+      if (item) {
+        this.startUsingItem(item, offhand)
+      }
+    }
+
+    this.lastBlockPlaced = 0
+  }
+
+  private startUsingItem(item: { name: string }, isOffhand: boolean) {
+    const slot = isOffhand ? 45 : this.bot.quickBarSlot
+    this.bot.activateItem(isOffhand)
+    this.itemBeingUsed = {
+      item,
+      isOffhand,
+      name: item.name
+    }
+    this.bot.emit('startUsingItem', item, slot, isOffhand, -1)
+  }
+
+  private stopUsingItem() {
+    if (this.itemBeingUsed) {
+      const { isOffhand, item } = this.itemBeingUsed
+      const slot = isOffhand ? 45 : this.bot.quickBarSlot
+      this.bot.emit('stopUsingItem', item, slot, isOffhand)
+      this.bot.deactivateItem()
+      this.itemBeingUsed = null
+    }
+  }
+
+  private updateBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean) {
     // Stop break
     if ((!this.buttons[0] && this.lastButtons[0]) || cursorChanged) {
       try {
         this.bot.stopDigging()
+        if (this.cursorBlock) {
+          this.bot.emit('blockBreakProgress', this.cursorBlock, null)
+        }
       } catch (e) { }
     }
 
     // We stopped breaking
-    if ((!this.buttons[0] && this.lastButtons[0])) {
+    if (!this.buttons[0] && this.lastButtons[0]) {
       this.lastDugBlock = null
       this.breakStartTime = undefined
       this.debugDigStatus = 'cancelled'
+      if (this.cursorBlock) {
+        this.bot.emit('blockBreakProgress', this.cursorBlock, null)
+      }
     }
 
     const onGround = this.bot.entity.onGround || this.bot.game.gameMode === 'creative'
@@ -215,53 +333,127 @@ class MouseManager {
 
     // Start break
     if (this.buttons[0]) {
-      if (cursorBlockDiggable
-        && (!this.lastButtons[0] || ((cursorChanged || (this.lastDugBlock && !this.lastDugBlock.equals(cursorBlock!.position))) && Date.now() - (this.lastDigged ?? 0) > 300) || onGround !== this.prevOnGround)
-        && onGround) {
-        this.lastDugBlock = null
-        this.debugDigStatus = 'breaking'
-        this.currentDigTime = this.bot.digTime(cursorBlockDiggable)
-        this.breakStartTime = performance.now()
-        const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
-        this.bot.dig(
-          //@ts-ignore
-          cursorBlockDiggable, 'ignore', vecArray[cursorBlockDiggable.face]
-        ).catch((err) => {
-          if (err.message === 'Digging aborted') return
-          throw err
-        })
-        this.bot.emit('botDigStart', cursorBlockDiggable)
-        this.lastDigged = Date.now()
-        this.bot.emit('botArmSwingStart', 'right')
-      } else if (performance.now() - this.lastSwing > 200) {
-        this.bot.swingArm('right')
-        this.lastSwing = performance.now()
-      }
+      this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, onGround)
     }
 
     this.prevOnGround = onGround
+  }
+
+  private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
+    if (cursorBlockDiggable
+      && (!this.lastButtons[0] ||
+        ((cursorChanged || (this.lastDugBlock && !this.lastDugBlock.equals(cursorBlock!.position)))
+          && Date.now() - (this.lastDigged ?? 0) > 300)
+        || onGround !== this.prevOnGround)
+      && onGround) {
+      this.startBreaking(cursorBlockDiggable)
+    } else if (performance.now() - this.lastSwing > 200) {
+      this.bot.swingArm('right')
+      this.lastSwing = performance.now()
+    }
+  }
+
+  private startBreaking(block: Block) {
+    this.lastDugBlock = null
+    this.debugDigStatus = 'breaking'
+    this.currentDigTime = this.bot.digTime(block)
+    this.breakStartTime = performance.now()
+
+    const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
+    this.bot.dig(
+      //@ts-ignore
+      block, 'ignore', vecArray[block.face]
+    ).catch((err) => {
+      if (err.message === 'Digging aborted') return
+      throw err
+    })
+
+    this.bot.emit('startDigging', block)
+    this.lastDigged = Date.now()
+    this.bot.emit('botArmSwingStart', 'right')
+  }
+
+  private updateButtonStates() {
     this.lastButtons[0] = this.buttons[0]
     this.lastButtons[1] = this.buttons[1]
     this.lastButtons[2] = this.buttons[2]
   }
+
+  private getDataFromShape(shape: [number, number, number, number, number, number]) {
+    const width = shape[3] - shape[0]
+    const height = shape[4] - shape[1]
+    const depth = shape[5] - shape[2]
+    const centerX = (shape[3] + shape[0]) / 2
+    const centerY = (shape[4] + shape[1]) / 2
+    const centerZ = (shape[5] + shape[2]) / 2
+    const position = new Vec3(centerX, centerY, centerZ)
+    return { position, width, height, depth }
+  }
 }
 
-export function inject(bot: Bot) {
-  const mouse = new MouseManager(bot)
+export function inject(bot: Bot, settings: BotPluginSettings) {
+  const mouse = new MouseManager(bot, settings)
   bot.mouse = mouse
+
+  bot.rightClickStart = () => {
+    mouse.buttons[2] = true
+    mouse.update()
+  }
+  bot.rightClickEnd = () => {
+    mouse.buttons[2] = false
+    mouse.update()
+  }
+  bot.leftClickStart = () => {
+    mouse.buttons[1] = true
+    mouse.update()
+  }
+  bot.leftClickEnd = () => {
+    mouse.buttons[1] = false
+    mouse.update()
+  }
+  bot.leftClick = () => {
+    bot.leftClickStart()
+    setTimeout(() => {
+      bot.leftClickEnd()
+    })
+  }
+  bot.rightClick = () => {
+    bot.rightClickStart()
+    setTimeout(() => {
+      bot.rightClickEnd()
+    })
+  }
+  Object.defineProperty(bot, 'usingItem', {
+    get: () => mouse.itemBeingUsed
+  })
+
   return mouse
 }
 
 declare module 'mineflayer' {
   interface Bot {
     mouse: MouseManager
+
+    rightClickStart: () => void
+    rightClickEnd: () => void
+    leftClickStart: () => void
+    leftClickEnd: () => void
+    leftClick: () => void
+    rightClick: () => void
+    readonly usingItem: ItemUseState | null
   }
+
   interface BotEvents {
     'botArmSwingStart': (hand: 'right' | 'left') => void
     'botArmSwingEnd': (hand: 'right' | 'left') => void
-    'blockBreakProgress': (block: Block, stage: number) => void
-    'botDigStart': (block: Block) => void
+    'blockBreakProgress': (block: Block, stage: number | null) => void
+    'startDigging': (block: Block) => void
+    'goingToSleep': (block: Block) => void
+    'startUsingItem': (item: { name: string }, slot: number, isOffhand: boolean, duration: number) => void
+    'stopUsingItem': (item: { name: string }, slot: number, isOffhand: boolean) => void
+    'highlightCursorBlock': (data?: { block: Block, shapes: { position: Vec3, width: number, height: number, depth: number }[] }) => void
   }
 }
+
 
 export { MouseManager as MousePlugin }

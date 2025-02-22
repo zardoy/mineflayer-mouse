@@ -3,7 +3,12 @@
     "version": "0.0.0",
     "private": true,
     "license": "MIT",
-    "scripts": {},
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "watch": "tsc --watch",
+        "build": "tsc"
+    },
     "packageManager": "pnpm@10.2.0",
     "devDependencies": {
         "@zardoy/tsconfig": "^1.5.1",
