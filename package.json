@@ -5,13 +5,18 @@
     "license": "MIT",
     "scripts": {},
     "packageManager": "pnpm@10.2.0",
-    "dependencies": {},
     "devDependencies": {
-        "prismarine-block": "^1.21.0",
-        "typescript": "^5.7.3",
-        "vec3": "^0.1.10",
         "@zardoy/tsconfig": "^1.5.1",
+        "minecraft-data": "^3.84.1",
         "mineflayer": "^4.26.0",
-        "prismarine-entity": "^2.5.0"
+        "prismarine-block": "^1.21.0",
+        "prismarine-entity": "^2.5.0",
+        "typescript": "^5.7.3",
+        "vec3": "^0.1.10"
+    },
+    "dependencies": {
+        "change-case": "^5.4.4",
+        "debug": "^4.4.0",
+        "prismarine-world": "^3.6.3"
     }
 }

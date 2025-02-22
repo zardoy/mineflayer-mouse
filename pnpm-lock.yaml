@@ -7,10 +7,23 @@ settings:
 importers:
 
   .:
+    dependencies:
+      change-case:
+        specifier: ^5.4.4
+        version: 5.4.4
+      debug:
+        specifier: ^4.4.0
+        version: 4.4.0
+      prismarine-world:
+        specifier: ^3.6.3
+        version: 3.6.3
     devDependencies:
       '@zardoy/tsconfig':
         specifier: ^1.5.1
         version: 1.5.1(typescript@5.7.3)
+      minecraft-data:
+        specifier: ^3.84.1
+        version: 3.84.1
       mineflayer:
         specifier: ^4.26.0
         version: 4.26.0
@@ -86,6 +99,9 @@ packages:
 
   buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
+
+  change-case@5.4.4:
+    resolution: {integrity: sha512-HRQyTk2/YPEkt9TnUPbOpr64Uw3KOicFWPVBb+xiHvd6eBx/qPr9xqfBFDT8P2vWsvvz4jbEkfDe71W3VyNu2w==}
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
@@ -436,6 +452,8 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
+
+  change-case@5.4.4: {}
 
   commander@2.20.3: {}
 

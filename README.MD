@@ -1,6 +1,6 @@
 # Mineflayer Mouse
 
-First-class simple API for emulating mouse control in Mineflayer.
+First-class **battle-tested** simple API for emulating real Minecraft mouse control in Mineflayer. You should use it for digging (mining) or placing blocks and entity attacking or using and using items.
 
 > Note: This module will be deprecated once the functionality is merged into the main `mineflayer` library with 1:1.
 

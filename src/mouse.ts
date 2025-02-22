@@ -3,7 +3,9 @@ import { Vec3 } from 'vec3'
 import { Entity } from 'prismarine-entity'
 import { Block } from 'prismarine-block'
 import { EventEmitter } from 'events'
-import { isItemActivatable, isBlockActivatable } from './gameData'
+import { isItemActivatable, isBlockActivatable } from './itemBlocksStatic'
+import { debug } from './debug'
+import { raycastEntity } from './entityRaycast'
 
 interface MouseEvents {
   'blockBreakProgress': (block: Block, stage: number) => void
@@ -26,6 +28,8 @@ class MouseManager {
   debugDigStatus: string = 'none'
   currentBreakBlock: { block: Block, stage: number } | null = null
   swingTimeout: any = null
+  // todo clear when got a packet from server
+  brokenBlocks: Block[] = []
 
   constructor(private bot: Bot) {
     this.initBotEvents()
@@ -41,6 +45,7 @@ class MouseManager {
       this.lastDugBlock = block.position
       this.lastDigged = Date.now()
       this.debugDigStatus = 'done'
+      this.brokenBlocks = [...this.brokenBlocks.slice(-5), block]
       // this.bot.emit('blockBreakComplete', block)
     })
 
@@ -96,6 +101,14 @@ class MouseManager {
         const packetPos = new Vec3(data.location.x, data.location.y, data.location.z)
         if (this.cursorBlock?.position.equals(packetPos)) {
           // restore the block to the world if already digged
+          if (this.bot.world.getBlockStateId(packetPos) === 0) {
+            const block = this.brokenBlocks.find(b => b.position.equals(packetPos))
+            if (block) {
+              this.bot.world.setBlock(packetPos, block)
+            } else {
+              debug(`Cannot find block to restore at ${packetPos}`)
+            }
+          }
           this.buttons[0] = false
           this.update()
         }
@@ -140,7 +153,7 @@ class MouseManager {
     this.beforeUpdateChecks()
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
-    const entity = this.getEntityCursor()
+    const entity = raycastEntity(this.bot)
     let _cursorBlock = this.bot.blockAtCursor(5)
     if (entity) {
       _cursorBlock = null
@@ -230,36 +243,6 @@ class MouseManager {
     this.lastButtons[0] = this.buttons[0]
     this.lastButtons[1] = this.buttons[1]
     this.lastButtons[2] = this.buttons[2]
-  }
-
-  private getEntityCursor() {
-    const entity = this.bot.nearestEntity((e) => {
-      if (e.position.distanceTo(this.bot.entity.position) <= (this.bot.game.gameMode === 'creative' ? 5 : 3)) {
-        const dir = this.getViewDirection(this.bot.entity.pitch, this.bot.entity.yaw)
-        const { width, height } = e
-        const { x: eX, y: eY, z: eZ } = e.position
-        const { x: bX, y: bY, z: bZ } = this.bot.entity.position
-
-        // Simple ray intersection check
-        const dx = eX - bX
-        const dy = (eY + height/2) - (bY + 1.52)
-        const dz = eZ - bZ
-        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
-
-        const dotProduct = (dx*dir.x + dy*dir.y + dz*dir.z) / dist
-        return dotProduct > 0.95 // roughly 18 degree cone
-      }
-      return false
-    })
-    return entity
-  }
-
-  private getViewDirection(pitch: number, yaw: number) {
-    const csPitch = Math.cos(pitch)
-    const snPitch = Math.sin(pitch)
-    const csYaw = Math.cos(yaw)
-    const snYaw = Math.sin(yaw)
-    return new Vec3(-snYaw * csPitch, snPitch, -csYaw * csPitch)
   }
 }
 
