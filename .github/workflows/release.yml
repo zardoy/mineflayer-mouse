@@ -10,17 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Cache pnpm modules
-        uses: actions/cache@v2
+      - uses: actions/setup-node@v3
         with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-
-      - uses: pnpm/action-setup@v2.0.1
-        with:
-          run_install: |
-            args: [--frozen-lockfile, --strict-peer-dependencies]
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install & Enable Corepack
+        run: npm install -g corepack && corepack enable
+      - name: Install Dependencies
+        run: pnpm install
       - name: Set publishing config
         run: pnpm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
         env:

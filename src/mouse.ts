@@ -111,7 +111,10 @@ export class MouseManager {
           this.buttons[0] = true
           this.update()
         }
-        this.bot.emit('blockBreakProgress', block, destroyStage)
+        const shapes = [...block.shapes ?? [], ...block['interactionShapes'] ?? []]
+        const mergedShape = this.getMergedShape(shapes)
+        const shapeData = mergedShape ? this.getDataFromShape(mergedShape) : undefined
+        this.bot.emit('blockBreakProgress', block, destroyStage, shapeData)
       }
     })
 
@@ -389,6 +392,21 @@ export class MouseManager {
     const position = new Vec3(centerX, centerY, centerZ)
     return { position, width, height, depth }
   }
+
+  private getMergedShape(shapes: number[][]): [number, number, number, number, number, number] | undefined {
+    if (!shapes.length) return undefined
+
+    return shapes.reduce((acc, cur) => {
+      return [
+        Math.min(acc[0]!, cur[0]!),
+        Math.min(acc[1]!, cur[1]!),
+        Math.min(acc[2]!, cur[2]!),
+        Math.max(acc[3]!, cur[3]!),
+        Math.max(acc[4]!, cur[4]!),
+        Math.max(acc[5]!, cur[5]!)
+      ]
+    }) as [number, number, number, number, number, number]
+  }
 }
 
 export function inject(bot: Bot, settings: BotPluginSettings) {
@@ -446,7 +464,7 @@ declare module 'mineflayer' {
   interface BotEvents {
     'botArmSwingStart': (hand: 'right' | 'left') => void
     'botArmSwingEnd': (hand: 'right' | 'left') => void
-    'blockBreakProgress': (block: Block, stage: number | null) => void
+    'blockBreakProgress': (block: Block, stage: number | null, shapes?: { position: Vec3, width: number, height: number, depth: number }) => void
     'startDigging': (block: Block) => void
     'goingToSleep': (block: Block) => void
     'startUsingItem': (item: { name: string }, slot: number, isOffhand: boolean, duration: number) => void
