@@ -23,11 +23,21 @@ const bot = createBot({
 
 bot.loadPlugin(createMouse());
 
-bot.mouse.leftClick();
+// based on returned entity or block you can determine what action would happen (you cant enfoce specific action since thats not how game works)
+const { entity, cursorBlock, cursorBlockDiggable } = bot.mouse.getCursorState();
 
-bot.mouse.rightClick();
+// attack entity
+bot.leftClick();
+// start digging block
+bot.leftClickStart()
+// stop digging block
+bot.leftClickEnd()
 
-bot.mouse.scroll(10);
+// place block
+bot.rightClick()
 
+// start placing block
+bot.rightClickStart()
 
+// ...
 ```
