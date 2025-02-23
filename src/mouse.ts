@@ -81,6 +81,8 @@ export class MouseManager {
       this.brokenBlocks = [...this.brokenBlocks.slice(-5), block]
       // Hide breaking animation when complete
       this.bot.emit('blockBreakProgressStage', block, null)
+      // TODO: If the tool and enchantments immediately exceed the hardness times 30, the block breaks with no delay; SO WE NEED TO CHECK THAT
+      // TODO: Any blocks with a breaking time of 0.05
     })
 
     this.bot.on('diggingAborted', (block) => {
@@ -273,10 +275,12 @@ export class MouseManager {
         this.bot._placeBlockWithOptions(cursorBlock, vecArray[cursorBlock.face], { delta, forceLook: 'ignore' })
           .catch(console.warn)
       } else {
+        // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
         const oldLookAt = this.bot.lookAt
         //@ts-ignore
         this.bot.lookAt = (pos) => { }
         //@ts-ignore
+        // TODO it still must 1. fire block place 2. swing arm (right)
         this.bot.activateBlock(cursorBlock, vecArray[cursorBlock.face], delta)
           .finally(() => {
             this.bot.lookAt = oldLookAt
@@ -323,10 +327,11 @@ export class MouseManager {
     if ((!this.buttons[0] && this.lastButtons[0]) || cursorChanged) {
       try {
         this.bot.stopDigging()
+        this.debugDigStatus = 'temporary stopped'
         if (this.cursorBlock) {
           this.bot.emit('blockBreakProgressStage', this.cursorBlock, null)
         }
-      } catch (e) { }
+      } catch (e) { } // to be reworked in mineflayer, then remove the try here
     }
 
     // We stopped breaking
@@ -340,7 +345,7 @@ export class MouseManager {
     }
 
     const onGround = this.bot.entity.onGround || this.bot.game.gameMode === 'creative'
-    this.prevOnGround ??= onGround
+    this.prevOnGround ??= onGround // todo this should be fixed in mineflayer to involve correct calculations when this changes as this is very important when mining straight down
 
     this.updateBreakingBlockState(cursorBlockDiggable)
 
