@@ -19,6 +19,9 @@ export interface ItemUseState {
 }
 
 export interface BotPluginSettings {
+  blockPlacePrediction?: boolean
+  blockPlacePredictionHandler?: (block: Block) => Block | null
+  // blockPlacePredictionDelay?: number
   blockInteractionHandlers?: Record<string, BlockInteractionHandler>
 }
 
@@ -52,6 +55,7 @@ export class MouseManager {
   lastDugBlock: Vec3 | null = null
   lastDigged: number = 0
   debugDigStatus: string = 'none'
+  debugLastStopReason: string = 'none'
   currentBreakBlock: { block: Block, stage: number } | null = null
   swingTimeout: any = null
   // todo clear when got a packet from server
@@ -67,6 +71,22 @@ export class MouseManager {
     this.initBotEvents()
   }
 
+  resetDiggingVisual(block: Block) {
+    this.bot.emit('blockBreakProgressStage', block, null)
+  }
+
+  stopDiggingCompletely(reason: string) {
+    // try { this.bot.stopDigging() } catch (err) { console.warn('stopDiggingCompletely', err) }
+    try { this.bot.stopDigging() } catch (err) { }
+    this.breakStartTime = undefined
+    this.prevBreakState = null
+    if (this.cursorBlock) {
+      this.resetDiggingVisual(this.cursorBlock)
+    }
+    this.debugDigStatus = `stopped by ${reason}`
+    this.debugLastStopReason = reason
+  }
+
   private initBotEvents() {
     this.bot.on('physicsTick', () => {
       if (this.lastBlockPlaced < 4) this.lastBlockPlaced++
@@ -77,10 +97,9 @@ export class MouseManager {
       this.breakStartTime = undefined
       this.lastDugBlock = block.position
       this.lastDigged = Date.now()
-      this.debugDigStatus = 'done'
+      this.debugDigStatus = 'success'
       this.brokenBlocks = [...this.brokenBlocks.slice(-5), block]
-      // Hide breaking animation when complete
-      this.bot.emit('blockBreakProgressStage', block, null)
+      this.resetDiggingVisual(block)
       // TODO: If the tool and enchantments immediately exceed the hardness times 30, the block breaks with no delay; SO WE NEED TO CHECK THAT
       // TODO: Any blocks with a breaking time of 0.05
     })
@@ -95,11 +114,9 @@ export class MouseManager {
         this.buttons[0] = true // trigger again
       }
       this.lastDugBlock = null
-      // Hide breaking animation when aborted
-      this.bot.emit('blockBreakProgressStage', block, null)
+      this.resetDiggingVisual(block)
     })
 
-    // Add new event listeners for block breaking and swinging
     this.bot.on('entitySwingArm', (entity: Entity) => {
       if (entity.id === this.bot.entity.id) {
         if (this.swingTimeout) {
@@ -222,9 +239,13 @@ export class MouseManager {
     const inAdventure = this.bot.game.gameMode === 'adventure'
     const entity = raycastEntity(this.bot)
 
+    // If entity is found, we should stop any current digging
     let cursorBlock = this.bot.blockAtCursor(5)
     if (entity) {
       cursorBlock = null
+      if (this.breakStartTime !== undefined) {
+        this.stopDiggingCompletely('entity interference')
+      }
     }
 
     let cursorBlockDiggable = cursorBlock
@@ -323,25 +344,14 @@ export class MouseManager {
   }
 
   private updateBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean) {
-    // Stop break
-    if ((!this.buttons[0] && this.lastButtons[0]) || cursorChanged) {
-      try {
-        this.bot.stopDigging()
-        this.debugDigStatus = 'temporary stopped'
-        if (this.cursorBlock) {
-          this.bot.emit('blockBreakProgressStage', this.cursorBlock, null)
-        }
-      } catch (e) { } // to be reworked in mineflayer, then remove the try here
+    if (cursorChanged) {
+      this.stopDiggingCompletely('block change delay')
     }
 
     // We stopped breaking
     if (!this.buttons[0] && this.lastButtons[0]) {
-      this.lastDugBlock = null
-      this.breakStartTime = undefined
-      this.debugDigStatus = 'cancelled'
-      if (this.cursorBlock) {
-        this.bot.emit('blockBreakProgressStage', this.cursorBlock, null)
-      }
+      this.stopDiggingCompletely('user stopped')
+      this.bot.emit('botArmSwingEnd', 'right')
     }
 
     const onGround = this.bot.entity.onGround || this.bot.game.gameMode === 'creative'
@@ -363,11 +373,8 @@ export class MouseManager {
       const elapsed = performance.now() - this.breakStartTime
       const time = this.bot.digTime(cursorBlockDiggable)
       if (time !== this.currentDigTime) {
-        console.warn('dig time changed! cancelling!', time, 'from', this.currentDigTime)
-        try {
-          this.bot.stopDigging()
-          this.bot.emit('blockBreakProgressStage', cursorBlockDiggable, null)
-        } catch { }
+        console.warn('dig time changed! cancelling!', this.currentDigTime, '->', time)
+        this.stopDiggingCompletely('dig time changed')
       } else {
         const state = Math.floor((elapsed / time) * 10)
         if (state !== this.prevBreakState) {
@@ -379,12 +386,17 @@ export class MouseManager {
   }
 
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
-    if (cursorBlockDiggable
-      && (!this.lastButtons[0] ||
-        ((cursorChanged || (this.lastDugBlock && !this.lastDugBlock.equals(cursorBlock!.position)))
-          && Date.now() - (this.lastDigged ?? 0) > 300)
-        || onGround !== this.prevOnGround)
-      && onGround) {
+    // const justStartingNewBreak = !this.lastButtons[0]
+    const justStartingNewBreak = !this.currentDigTime
+    const blockChanged = cursorChanged || (this.lastDugBlock && !this.lastDugBlock.equals(cursorBlock!.position))
+    const enoughTimePassed = Date.now() - (this.lastDigged ?? 0) > 300
+    const breakTimeConditionsChanged = onGround !== this.prevOnGround
+
+    if (
+      cursorBlockDiggable
+      && onGround
+      && (justStartingNewBreak || (blockChanged && enoughTimePassed) || breakTimeConditionsChanged)
+    ) {
       this.startBreaking(cursorBlockDiggable)
     } else if (performance.now() - this.lastSwing > 200) {
       this.bot.swingArm('right')

@@ -9,7 +9,8 @@
     ],
     "scripts": {
         "watch": "tsc --watch",
-        "build": "tsc"
+        "build": "tsc",
+        "test": "vitest"
     },
     "packageManager": "pnpm@10.2.0",
     "devDependencies": {
@@ -24,6 +25,7 @@
     "dependencies": {
         "change-case": "^5.4.4",
         "debug": "^4.4.0",
-        "prismarine-world": "^3.6.3"
+        "prismarine-world": "^3.6.3",
+        "vitest": "^3.0.6"
     }
 }
