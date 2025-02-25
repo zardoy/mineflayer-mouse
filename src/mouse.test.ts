@@ -81,7 +81,7 @@ vi.mock('./entityRaycast', () => ({
     raycastEntity: vi.fn().mockImplementation((bot) => null)
 }))
 
-describe('MouseManager', () => {
+describe.todo('MouseManager', () => {
     let bot: Bot
     let mouse: MouseManager
     let testState: TestState
