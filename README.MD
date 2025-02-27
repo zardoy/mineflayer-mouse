@@ -56,3 +56,10 @@ bot.rightClickStart()
 
 // ...
 ```
+
+## Roadmap
+
+- [X] Tests
+- [ ] Block placement prediction
+- [ ] Raycast, item/block activatable, block prediction overrides
+- [ ] Better item activation (on block, on entity)

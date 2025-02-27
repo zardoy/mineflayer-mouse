@@ -42,26 +42,33 @@ export interface CursorState {
   entity: Entity | null
 }
 
+// The delay is always 5 ticks between blocks
+// https://github.com/extremeheat/extracted_minecraft_data/blob/158aff8ad2a9051505e05703f554af8e50741d69/client/net/minecraft/client/multiplayer/MultiPlayerGameMode.java#L200
+const BLOCK_BREAK_DELAY_TICKS = 5
+
 export class MouseManager {
+  buttons = [false, false, false] as [boolean, boolean, boolean]
+  lastButtons = [false, false, false] as [boolean, boolean, boolean]
   cursorBlock: Block | null = null
   prevBreakState: number | null = null
   currentDigTime: number | null = null
   prevOnGround: boolean | null = null
-  lastBlockPlaced: number = 4
-  lastSwing = 0
-  buttons = [false, false, false] as [boolean, boolean, boolean]
-  lastButtons = [false, false, false] as [boolean, boolean, boolean]
+  rightClickDelay: number = 4
   breakStartTime: number | undefined = 0
   lastDugBlock: Vec3 | null = null
   lastDigged: number = 0
+  /** a visually synced one */
+  currentBreakBlock: { block: Block, stage: number } | null = null
+
   debugDigStatus: string = 'none'
   debugLastStopReason: string = 'none'
-  currentBreakBlock: { block: Block, stage: number } | null = null
+  brokenBlocks: Block[] = []
+  lastSwing = 0
+  itemBeingUsed: ItemUseState | null = null
+
   swingTimeout: any = null
   // todo clear when got a packet from server
-  brokenBlocks: Block[] = []
   private blockHandlers: Record<string, BlockInteractionHandler>
-  itemBeingUsed: ItemUseState | null = null
 
   constructor(private bot: Bot, public settings: BotPluginSettings = {}) {
     this.blockHandlers = {
@@ -73,23 +80,25 @@ export class MouseManager {
 
   resetDiggingVisual(block: Block) {
     this.bot.emit('blockBreakProgressStage', block, null)
+    this.currentBreakBlock = null
+    this.prevBreakState = null
   }
 
   stopDiggingCompletely(reason: string) {
     // try { this.bot.stopDigging() } catch (err) { console.warn('stopDiggingCompletely', err) }
     try { this.bot.stopDigging() } catch (err) { }
     this.breakStartTime = undefined
-    this.prevBreakState = null
     if (this.cursorBlock) {
       this.resetDiggingVisual(this.cursorBlock)
     }
     this.debugDigStatus = `stopped by ${reason}`
     this.debugLastStopReason = reason
+    this.currentDigTime = null
   }
 
   private initBotEvents() {
     this.bot.on('physicsTick', () => {
-      if (this.lastBlockPlaced < 4) this.lastBlockPlaced++
+      if (this.rightClickDelay < 4) this.rightClickDelay++
       this.update()
     })
 
@@ -224,7 +233,7 @@ export class MouseManager {
         this.activateEntity(entity)
       }
     } else {
-      if (this.buttons[2] && this.lastBlockPlaced >= 4) {
+      if (this.buttons[2] && this.rightClickDelay >= 4) {
         this.updatePlaceInteract(cursorBlock)
       }
 
@@ -266,15 +275,9 @@ export class MouseManager {
   }
 
   private updatePlaceInteract(cursorBlock: Block | null) {
-    if (!cursorBlock) return
-
-    const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
-    //@ts-ignore
-    const delta = cursorBlock.intersect.minus(cursorBlock.position)
-
     // Check for special block handlers first
     let handled = false
-    if (!this.bot.getControlState('sneak')) {
+    if (!this.bot.getControlState('sneak') && cursorBlock) {
       for (const handler of Object.values(this.blockHandlers)) {
         if (handler.test(cursorBlock)) {
           try {
@@ -288,41 +291,44 @@ export class MouseManager {
       }
     }
 
-    const activate = this.bot.heldItem && isItemActivatable(this.bot.heldItem.name)
+    const activateMain = this.bot.heldItem && isItemActivatable(this.bot.heldItem.name)
 
-    if (cursorBlock && !activate && !handled) {
-      if (this.bot.heldItem) {
-        //@ts-ignore
-        this.bot._placeBlockWithOptions(cursorBlock, vecArray[cursorBlock.face], { delta, forceLook: 'ignore' })
-          .catch(console.warn)
+    if (!handled) {
+      if (cursorBlock && !activateMain) {
+        const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
+        const delta = cursorBlock['intersect'].minus(cursorBlock.position)
+        if (this.bot.heldItem) {
+          this.bot['_placeBlockWithOptions'](cursorBlock, vecArray[cursorBlock['face']], { delta, forceLook: 'ignore' })
+            .catch(console.warn)
+        } else {
+          // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
+          const oldLookAt = this.bot.lookAt
+          //@ts-ignore
+          this.bot.lookAt = (pos) => { }
+          // TODO it still must 1. fire block place
+          this.bot.activateBlock(cursorBlock, vecArray[cursorBlock['face']], delta)
+            .finally(() => {
+              this.bot.lookAt = oldLookAt
+            })
+            .catch(console.warn)
+          // this.bot.swingArm('right')
+        }
+        this.bot.emit('botArmSwingStart', 'right')
+        this.bot.emit('botArmSwingEnd', 'right')
       } else {
-        // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
-        const oldLookAt = this.bot.lookAt
-        //@ts-ignore
-        this.bot.lookAt = (pos) => { }
-        //@ts-ignore
-        // TODO it still must 1. fire block place 2. swing arm (right)
-        this.bot.activateBlock(cursorBlock, vecArray[cursorBlock.face], delta)
-          .finally(() => {
-            this.bot.lookAt = oldLookAt
-          })
-          .catch(console.warn)
-      }
-      this.bot.emit('botArmSwingStart', 'right')
-      this.bot.emit('botArmSwingEnd', 'right')
-    } else if (!handled) {
-      const offhand = activate ? false : isItemActivatable(this.bot.inventory.slots[45]?.name ?? '')
-      this.bot.activateItem(offhand)
-      const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
-      if (item) {
-        this.startUsingItem(item, offhand)
+        const offhand = activateMain ? false : isItemActivatable(this.bot.inventory.slots[45]?.name ?? '')
+        const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
+        if (item) {
+          this.startUsingItem(item, offhand)
+        }
       }
     }
 
-    this.lastBlockPlaced = 0
+    this.rightClickDelay = 0
   }
 
   private startUsingItem(item: { name: string }, isOffhand: boolean) {
+    if (this.itemBeingUsed) return // hands busy
     const slot = isOffhand ? 45 : this.bot.quickBarSlot
     this.bot.activateItem(isOffhand)
     this.itemBeingUsed = {
@@ -379,6 +385,7 @@ export class MouseManager {
         const state = Math.floor((elapsed / time) * 10)
         if (state !== this.prevBreakState) {
           this.bot.emit('blockBreakProgressStage', cursorBlockDiggable, Math.min(state, 9))
+          this.currentBreakBlock = { block: cursorBlockDiggable, stage: state }
         }
         this.prevBreakState = state
       }
@@ -386,16 +393,16 @@ export class MouseManager {
   }
 
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
-    // const justStartingNewBreak = !this.lastButtons[0]
-    const justStartingNewBreak = !this.currentDigTime
-    const blockChanged = cursorChanged || (this.lastDugBlock && !this.lastDugBlock.equals(cursorBlock!.position))
-    const enoughTimePassed = Date.now() - (this.lastDigged ?? 0) > 300
+    const justStartingNewBreak = !this.lastButtons[0]
+    const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
+    const enoughTimePassed = !this.lastDigged || (Date.now() - this.lastDigged > BLOCK_BREAK_DELAY_TICKS * 20)
     const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
     if (
       cursorBlockDiggable
       && onGround
-      && (justStartingNewBreak || (blockChanged && enoughTimePassed) || breakTimeConditionsChanged)
+      && enoughTimePassed
+      && (justStartingNewBreak || blockChanged || breakTimeConditionsChanged)
     ) {
       this.startBreaking(cursorBlockDiggable)
     } else if (performance.now() - this.lastSwing > 200) {
@@ -490,12 +497,10 @@ export function inject(bot: Bot, settings: BotPluginSettings) {
   }
   bot.leftClick = () => {
     bot.leftClickStart()
-    bot.mouse.update()
     bot.leftClickEnd()
   }
   bot.rightClick = () => {
     bot.rightClickStart()
-    bot.mouse.update()
     bot.rightClickEnd()
   }
   Object.defineProperty(bot, 'usingItem', {

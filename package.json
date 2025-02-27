@@ -12,6 +12,21 @@
         "build": "tsc",
         "test": "vitest"
     },
+    "keywords": [
+        "mineflayer",
+        "mouse",
+        "digging",
+        "mining",
+        "automation",
+        "minecraft",
+        "botting",
+        "placing",
+        "breaking",
+        "player",
+        "blocks",
+        "miner",
+        "actually works"
+    ],
     "packageManager": "pnpm@10.2.0",
     "devDependencies": {
         "@zardoy/tsconfig": "^1.5.1",
