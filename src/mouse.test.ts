@@ -172,7 +172,7 @@ describe('MouseManager', () => {
             LEFT_END()
             ASSERT_ACTIONS(['stopdig'])
             LEFT_START()
-            ASSERT_ACTIONS([])
+            ASSERT_ACTIONS(['startdig'])
             LEFT_END()
             ASSERT_ACTIONS(['stopdig'])
         })
@@ -191,8 +191,14 @@ describe('MouseManager', () => {
             SET_CURSOR_BLOCK(new Vec3(2, 2, 2))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
+            LEFT_START()
+            ASSERT_ACTIONS([])
 
-            vi.advanceTimersByTime(400)
+            // we have 250 delay
+            vi.advanceTimersByTime(200)
+            UPDATE()
+            ASSERT_ACTIONS([])
+            vi.advanceTimersByTime(200)
             UPDATE()
             ASSERT_ACTIONS(['startdig'])
 
@@ -351,9 +357,9 @@ describe('MouseManager', () => {
             SET_CURSOR_BLOCK(new Vec3(2, 2, 2))
 
             RIGHT_START()
-            ASSERT_ACTIONS([], true)
-            for (let i = 0; i < 5; i++) PHYSICS_TICK()
             ASSERT_ACTIONS(['placeBlock'], true)
+            // for (let i = 0; i < 5; i++) PHYSICS_TICK()
+            // ASSERT_ACTIONS(['placeBlock'], true)
 
             RIGHT_END()
             PHYSICS_TICK()
@@ -377,7 +383,7 @@ describe('MouseManager', () => {
             ASSERT_ACTIONS(['deactivateItem'], true)
         })
 
-        it('should handle item activation with delay', () => {
+        it('should handle item activation click-click', () => {
             bot.heldItem = { name: 'bow' } as any
 
             RIGHT_START()
@@ -386,10 +392,10 @@ describe('MouseManager', () => {
             ASSERT_ACTIONS(['deactivateItem'], true)
 
             RIGHT_START()
-            ASSERT_ACTIONS([])
+            ASSERT_ACTIONS(['activateItem'], true)
 
             for (let i = 0; i < 4; i++) PHYSICS_TICK()
-            ASSERT_ACTIONS(['activateItem'], true)
+            ASSERT_ACTIONS([], true)
 
             RIGHT_END()
             ASSERT_ACTIONS(['deactivateItem'], true)

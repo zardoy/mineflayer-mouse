@@ -233,7 +233,7 @@ export class MouseManager {
         this.activateEntity(entity)
       }
     } else {
-      if (this.buttons[2] && this.rightClickDelay >= 4) {
+      if (this.buttons[2] && (this.rightClickDelay >= 4 || !this.lastButtons[2])) {
         this.updatePlaceInteract(cursorBlock)
       }
 
@@ -395,14 +395,13 @@ export class MouseManager {
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
     const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
-    const enoughTimePassed = !this.lastDigged || (Date.now() - this.lastDigged > BLOCK_BREAK_DELAY_TICKS * 20)
+    const enoughTimePassed = !this.lastDigged || (Date.now() - this.lastDigged > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
     if (
       cursorBlockDiggable
       && onGround
-      && enoughTimePassed
-      && (justStartingNewBreak || blockChanged || breakTimeConditionsChanged)
+      && (justStartingNewBreak || (enoughTimePassed && (blockChanged || breakTimeConditionsChanged)))
     ) {
       this.startBreaking(cursorBlockDiggable)
     } else if (performance.now() - this.lastSwing > 200) {
