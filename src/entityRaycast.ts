@@ -16,7 +16,7 @@ export const raycastEntity = (bot: Bot) => {
     maxDistance = block?.['intersect'].distanceTo(bot.entity.position) ?? maxDistance
 
     const entityCandidates = Object.values(bot.entities)
-        .filter(entity => entity.username !== bot.username && entity.position.distanceTo(bot.entity.position) <= maxDistance)
+        .filter(entity => entity.username !== bot.username)
 
     const dir = new Vec3(-Math.sin(bot.entity.yaw) * Math.cos(bot.entity.pitch), Math.sin(bot.entity.pitch), -Math.cos(bot.entity.yaw) * Math.cos(bot.entity.pitch))
     const iterator = new iterators.RaycastIterator(bot.entity.position.offset(0, getBotEyeHeight(bot), 0), dir.normalize(), maxDistance)
