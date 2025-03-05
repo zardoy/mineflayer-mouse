@@ -153,7 +153,7 @@ describe('MouseManager', () => {
     })
 
     describe('Block Breaking', () => {
-        it.only('Survival hold break sequence', () => {
+        it('Survival hold break sequence', () => {
             const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
 
             LEFT_START()
