@@ -127,7 +127,7 @@ export class MouseManager {
     })
 
     this.bot.on('entitySwingArm', (entity: Entity) => {
-      if (entity.id === this.bot.entity.id) {
+      if (this.bot.entity && entity.id === this.bot.entity.id) {
         if (this.swingTimeout) {
           clearTimeout(this.swingTimeout)
         }
@@ -142,7 +142,7 @@ export class MouseManager {
 
     //@ts-ignore
     this.bot.on('blockBreakProgressStageObserved', (block: Block, destroyStage: number, entity: Entity) => {
-      if (this.cursorBlock?.position.equals(block.position) && entity.id === this.bot.entity.id) {
+      if (this.bot.entity && this.cursorBlock?.position.equals(block.position) && entity.id === this.bot.entity.id) {
         if (!this.buttons[0]) {
           this.buttons[0] = true
           this.update()
@@ -152,7 +152,7 @@ export class MouseManager {
 
     //@ts-ignore
     this.bot.on('blockBreakProgressStageEnd', (block: Block, entity: Entity) => {
-      if (this.currentBreakBlock?.block.position.equals(block.position) && entity.id === this.bot.entity.id) {
+      if (this.bot.entity && this.currentBreakBlock?.block.position.equals(block.position) && entity.id === this.bot.entity.id) {
         if (!this.buttons[0]) {
           this.buttons[0] = false
           this.update()
@@ -249,7 +249,7 @@ export class MouseManager {
     const entity = raycastEntity(this.bot)
 
     // If entity is found, we should stop any current digging
-    let cursorBlock = this.bot.blockAtCursor(5)
+    let cursorBlock = this.bot.entity ? this.bot.blockAtCursor(5) : null
     if (entity) {
       cursorBlock = null
       if (this.breakStartTime !== undefined) {
@@ -360,7 +360,7 @@ export class MouseManager {
       this.bot.emit('botArmSwingEnd', 'right')
     }
 
-    const onGround = this.bot.entity.onGround || this.bot.game.gameMode === 'creative'
+    const onGround = this.bot.entity?.onGround || this.bot.game.gameMode === 'creative'
     this.prevOnGround ??= onGround // todo this should be fixed in mineflayer to involve correct calculations when this changes as this is very important when mining straight down
 
     this.updateBreakingBlockState(cursorBlockDiggable)
