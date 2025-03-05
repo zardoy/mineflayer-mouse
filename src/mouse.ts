@@ -56,7 +56,7 @@ export class MouseManager {
   rightClickDelay: number = 4
   breakStartTime: number | undefined = 0
   lastDugBlock: Vec3 | null = null
-  lastDigged: number = 0
+  lastDugTime: number = 0
   /** a visually synced one */
   currentBreakBlock: { block: Block, stage: number } | null = null
 
@@ -105,7 +105,7 @@ export class MouseManager {
     this.bot.on('diggingCompleted', (block) => {
       this.breakStartTime = undefined
       this.lastDugBlock = block.position
-      this.lastDigged = Date.now()
+      this.lastDugTime = Date.now()
       this.debugDigStatus = 'success'
       this.brokenBlocks = [...this.brokenBlocks.slice(-5), block]
       this.resetDiggingVisual(block)
@@ -395,7 +395,7 @@ export class MouseManager {
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
     const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
-    const enoughTimePassed = !this.lastDigged || (Date.now() - this.lastDigged > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
+    const enoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
     if (
@@ -429,7 +429,6 @@ export class MouseManager {
     })
 
     this.bot.emit('startDigging', block)
-    this.lastDigged = Date.now()
     this.bot.emit('botArmSwingStart', 'right')
   }
 

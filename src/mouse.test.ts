@@ -153,7 +153,7 @@ describe('MouseManager', () => {
     })
 
     describe('Block Breaking', () => {
-        it.todo('Survival hold break sequence', () => {
+        it.only('Survival hold break sequence', () => {
             const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
 
             LEFT_START()
@@ -169,7 +169,17 @@ describe('MouseManager', () => {
             UPDATE()
             ASSERT_ACTIONS(['startdig'])
 
-            SET_CURSOR_BLOCK(new Vec3(3, 3, 3))
+            const block2 = SET_CURSOR_BLOCK(new Vec3(3, 3, 3))
+            UPDATE()
+            ASSERT_ACTIONS(['stopdig', 'startdig'])
+
+            vi.advanceTimersByTime(400)
+            UPDATE()
+            ASSERT_ACTIONS([])
+
+            SERVER_DIG_COMPLETE(block2)
+
+            SET_CURSOR_BLOCK(new Vec3(4, 4, 4))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
 

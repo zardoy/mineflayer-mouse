@@ -25,7 +25,7 @@ export const isEntityAttackable = (data: IndexedData, entity: Entity) => {
 
     const hardcodedCheck = hardcodedChecks[latestEntityName]
     if (hardcodedCheck) return hardcodedCheck(entity, originalEntityData)
-    return false
+    return true
 }
 
 const hardcodedChecks = {
