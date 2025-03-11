@@ -246,7 +246,7 @@ export class MouseManager {
   getCursorState(): CursorState {
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
-    const entity = raycastEntity(this.bot)
+    const entity = this.bot.entity ? raycastEntity(this.bot) : null
 
     // If entity is found, we should stop any current digging
     let cursorBlock = this.bot.entity ? this.bot.blockAtCursor(5) : null
