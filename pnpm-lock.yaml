@@ -14,6 +14,9 @@ importers:
       debug:
         specifier: ^4.4.0
         version: 4.4.0
+      prismarine-item:
+        specifier: ^1.16.0
+        version: 1.16.0
       prismarine-world:
         specifier: ^3.6.3
         version: 3.6.3

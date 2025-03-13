@@ -6,6 +6,7 @@ import { EventEmitter } from 'events'
 import { isItemActivatable } from './itemBlocksStatic'
 import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
+import { botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
 
 export interface BlockInteractionHandler {
   test: (block: Block) => boolean
@@ -295,10 +296,13 @@ export class MouseManager {
 
     if (!handled) {
       if (cursorBlock && !activateMain) {
-        const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
-        if (this.bot.heldItem) {
-          this.bot['_placeBlockWithOptions'](cursorBlock, vecArray[cursorBlock['face']], { delta, forceLook: 'ignore' })
+        const faceNum: number = cursorBlock['face']
+        const direction = directionToVector[faceNum]!
+        // const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction)
+        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, false)
+        if (blockPlaced) {
+          this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' })
             .catch(console.warn)
         } else {
           // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
@@ -306,7 +310,7 @@ export class MouseManager {
           //@ts-ignore
           this.bot.lookAt = (pos) => { }
           // TODO it still must 1. fire block place
-          this.bot.activateBlock(cursorBlock, vecArray[cursorBlock['face']], delta)
+          this.bot.activateBlock(cursorBlock, directionToVector[cursorBlock['face']], delta)
             .finally(() => {
               this.bot.lookAt = oldLookAt
             })

@@ -79,6 +79,11 @@ export const activatableBlockWithoutItemPatterns = [
   // sign (ignore)
 ] as const
 
+export const itemToBlockRemaps = {
+  redstone: 'redstone_wire',
+  tripwire_hook: 'tripwire'
+}
+
 export function isBlockActivatable(blockName: string): boolean {
   return activatableBlockWithoutItemPatterns.some(pattern => pattern.test(blockName))
 }
