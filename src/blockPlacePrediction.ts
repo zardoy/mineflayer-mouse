@@ -1,8 +1,6 @@
 import { Bot } from 'mineflayer';
-import { Block } from 'prismarine-block';
 import { activatableBlockWithoutItemPatterns, itemToBlockRemaps } from './itemBlocksStatic';
-import  PrismarineItem  from 'prismarine-item'
-import  PrismarineBlock  from 'prismarine-block'
+import  PrismarineBlock, {Block}  from 'prismarine-block'
 import { Vec3 } from 'vec3';
 import MinecraftData from 'minecraft-data'
 
@@ -32,22 +30,64 @@ export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum
         if (faceNum === 0) half = 'top'
         else if (faceNum === 1) half = 'bottom'
         const placedPosition = referencePosition.plus(directionVector)
-        const axis = directionToAxis[faceNum]
-        const facing = directionToFacing[faceNum]
+        const axis = directionToAxis[faceNum]!
+        const facing = directionToFacing[faceNum]!
         const mcData = MinecraftData(bot.version)
         const itemName = bot.heldItem.name;
         const block = mcData.blocksByName[itemToBlockRemaps[itemName] ?? itemName]
         if (block) {
             const prismarineBlock = PrismarineBlock(bot.version).fromStateId(block.defaultState, 0)
-            block.states
-            bot.world.setBlockStateId(placedPosition, block?.defaultState)
+            const finalBlock = getBlockFromProperties(PrismarineBlock(bot.version), prismarineBlock, block, [
+                {
+                    // like slabs
+                    matchingState: 'type',
+                    requireValues: ['bottom', 'top', 'double'],
+                    // todo support double
+                    value: half
+                },
+                {
+                    // like stairs
+                    matchingState: 'axis',
+                    requireValues: ['x', 'y', 'z'],
+                    value: axis
+                },
+                {
+                    // like fences, signs
+                    matchingState: 'facing',
+                    requireValues: ['north', 'south', 'east', 'west', 'up', 'down'],
+                    value: facing
+                },
+            ])
+            bot.world.setBlockStateId(placedPosition, finalBlock.stateId)
         }
     }
     // const placingBlock =
     return true
 }
 
-// const blockToProperties = (block: MinecraftData.Block, properties: Record<string, string>) => {
-//     const states = block.states;
-//     if (!states) return null
-// }
+interface SetBlockProperty {
+    matchingState: string
+    requireValues?: string[]
+    value: string | number | boolean
+}
+
+const getBlockFromProperties = (prismarineBlockInstance: typeof Block, prismarineBlock: Block, blockData: MinecraftData.Block, properties: SetBlockProperty[]) => {
+    const states = blockData.states;
+    if (!states) return prismarineBlock
+    const defaultProps = prismarineBlock.getProperties()
+
+    const finalProps = {} as Record<string, any>
+    for (const prop of states) {
+        const propName = prop.name
+        const propValue = properties.find(p => {
+            if (p.matchingState !== propName) return false
+            if (p.requireValues) {
+                if (!p.requireValues.every(v => prop.values?.includes(v))) return false
+            }
+            return true
+        })?.value
+        finalProps[propName] = propValue ?? defaultProps[propName]
+    }
+
+    return prismarineBlockInstance.fromProperties(blockData.id, finalProps, 0)
+}

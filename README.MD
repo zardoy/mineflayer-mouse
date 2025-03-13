@@ -12,7 +12,7 @@ pnpm add mineflayer-mouse
 
 ## Features
 
-<!-- - Predict block placement (optimistic update, useful for high ping) -->
+- Predict block placement (optimistic update, needed for correct physics on high ping)
 - Block breaking server cancellation
 - Accurate entity raycasting (targeting)
 - Debug logging

@@ -151,6 +151,9 @@ describe('MouseManager', () => {
     const CLEAR_CURSOR_ENTITY = () => {
         vi.mocked(entityRaycast.raycastEntity).mockReturnValue(null)
     }
+    const CLEAR_CURSOR_BLOCK = () => {
+        bot.blockAtCursor = vi.fn().mockReturnValue(null)
+    }
     const PHYSICS_TICK = () => {
         bot.emit('physicsTick')
         UPDATE()
@@ -295,6 +298,7 @@ describe('MouseManager', () => {
         })
 
         it('should handle hold attacking entity', () => {
+            SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
             SET_CURSOR_ENTITY()
 
             LEFT_START()
@@ -302,6 +306,7 @@ describe('MouseManager', () => {
 
             // Entity moves away
             CLEAR_CURSOR_ENTITY()
+            CLEAR_CURSOR_BLOCK()
             UPDATE()
             ASSERT_ACTIONS([])
 
@@ -315,6 +320,7 @@ describe('MouseManager', () => {
         })
 
         it('should handle entity interaction', () => {
+            SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
             SET_CURSOR_ENTITY()
 
             RIGHT_START()

@@ -299,8 +299,7 @@ export class MouseManager {
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
         const faceNum: number = cursorBlock['face']
         const direction = directionToVector[faceNum]!
-        // const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction)
-        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, false)
+        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction ?? true)
         if (blockPlaced) {
           this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' })
             .catch(console.warn)
