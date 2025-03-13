@@ -118,7 +118,9 @@ describe('MouseManager', () => {
             emittedEvents: []
         }
         bot = createMockBot(testState)
-        mouse = inject(bot, {})
+        mouse = inject(bot, {
+            blockPlacePrediction: false,
+        })
         bot.mouse.activateEntity = () => {
             testState.methodCalls.push('activateEntity')
         }

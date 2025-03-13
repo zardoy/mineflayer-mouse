@@ -6,7 +6,7 @@ import { EventEmitter } from 'events'
 import { isItemActivatable } from './itemBlocksStatic'
 import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
-import { botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
+import { BlockPlacePredictionOverride, botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
 
 export interface BlockInteractionHandler {
   test: (block: Block) => boolean
@@ -21,7 +21,7 @@ export interface ItemUseState {
 
 export interface BotPluginSettings {
   blockPlacePrediction?: boolean
-  blockPlacePredictionHandler?: (block: Block) => Block | null
+  blockPlacePredictionHandler?: BlockPlacePredictionOverride
   // blockPlacePredictionDelay?: number
   blockInteractionHandlers?: Record<string, BlockInteractionHandler>
 }
@@ -299,7 +299,7 @@ export class MouseManager {
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
         const faceNum: number = cursorBlock['face']
         const direction = directionToVector[faceNum]!
-        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction ?? true)
+        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction ?? true, this.settings.blockPlacePredictionHandler ?? null)
         if (blockPlaced) {
           this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' })
             .catch(console.warn)

@@ -8,7 +8,9 @@ export const directionToVector = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec
 const directionToAxis = ['y', 'y', 'z', 'z', 'x', 'x']
 const directionToFacing = ['south', 'west', 'north', 'east', 'up', 'down']
 
-export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum: number, delta: Vec3, doWorldUpdate: boolean) => {
+export type BlockPlacePredictionOverride = (computedBlock: Block) => Block | null | undefined
+
+export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum: number, delta: Vec3, doWorldUpdate: boolean, override: BlockPlacePredictionOverride | null) => {
     if (!bot.heldItem) return false
     const isSneaking = bot.controlState.sneak;
     const adventurePlaceAllowed = bot.heldItem.blocksCanPlaceOn?.some(([blockName]) => blockName === cursorBlock.name) ?? false
@@ -37,7 +39,7 @@ export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum
         const block = mcData.blocksByName[itemToBlockRemaps[itemName] ?? itemName]
         if (block) {
             const prismarineBlock = PrismarineBlock(bot.version).fromStateId(block.defaultState, 0)
-            const finalBlock = getBlockFromProperties(PrismarineBlock(bot.version), prismarineBlock, block, [
+            let finalBlock = getBlockFromProperties(PrismarineBlock(bot.version), prismarineBlock, block, [
                 {
                     // like slabs
                     matchingState: 'type',
@@ -58,6 +60,15 @@ export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum
                     value: facing
                 },
             ])
+            if (override) {
+                const overriddenBlock = override(finalBlock)
+                if (overriddenBlock === null) {
+                    // block placement cancelled
+                    return false
+                } else if (overriddenBlock) {
+                    finalBlock = overriddenBlock
+                }
+            }
             bot.world.setBlockStateId(placedPosition, finalBlock.stateId)
         }
     }
