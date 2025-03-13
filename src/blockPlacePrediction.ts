@@ -24,7 +24,7 @@ export const botTryPlaceBlockPrediction = (bot: Bot, cursorBlock: Block, faceNum
 
     const referencePosition = cursorBlock.position.clone()
     const block = bot.world.getBlock(referencePosition)
-    const directionVector = block.boundingBox === 'empty' ? new Vec3(0, 0, 0) : directionToVector[faceNum]!
+    const directionVector = block?.boundingBox === 'empty' ? new Vec3(0, 0, 0) : directionToVector[faceNum]!
 
     if (doWorldUpdate) {
         const cursorY = delta.y

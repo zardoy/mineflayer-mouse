@@ -58,7 +58,8 @@ function createMockBot(testState: TestState): Bot {
     bot.supportFeature = () => true as any
     bot.world = {
         getBlockStateId: () => 1,
-        setBlock: vi.fn()
+        setBlock: vi.fn(),
+        getBlock: () => null
     } as any
     bot.getControlState = () => false
     //@ts-ignore
