@@ -34,6 +34,15 @@ function createMockBot(testState: TestState): Bot {
     bot.canDigBlock = () => true
     bot.digTime = () => 1000 // 1 second break time for survival mode
     bot.blockAtCursor = () => null
+    bot.controlState = {
+        forward: false,
+        back: false,
+        left: false,
+        right: false,
+        jump: false,
+        sprint: false,
+        sneak: false
+    }
 
     // Track method calls
     bot.dig = vi.fn().mockImplementation(async (block) => {
