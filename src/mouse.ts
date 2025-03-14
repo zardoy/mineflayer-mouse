@@ -20,9 +20,13 @@ export interface ItemUseState {
 }
 
 export interface BotPluginSettings {
+  /** @default true */
   blockPlacePrediction?: boolean
+  /** @default 0 */
+  blockPlacePredictionDelay?: number
+  /** @default true */
+  blockPlacePredictionCheckEntities?: boolean
   blockPlacePredictionHandler?: BlockPlacePredictionOverride
-  // blockPlacePredictionDelay?: number
   blockInteractionHandlers?: Record<string, BlockInteractionHandler>
 }
 
@@ -55,7 +59,8 @@ export class MouseManager {
   currentDigTime: number | null = null
   prevOnGround: boolean | null = null
   rightClickDelay: number = 4
-  breakStartTime: number | undefined = 0
+  breakStartTime: number | undefined = undefined
+  ended = false
   lastDugBlock: Vec3 | null = null
   lastDugTime: number = 0
   /** a visually synced one */
@@ -81,6 +86,7 @@ export class MouseManager {
 
   resetDiggingVisual(block: Block) {
     this.bot.emit('blockBreakProgressStage', block, null)
+    this.bot.emit('botArmSwingEnd', 'right')
     this.currentBreakBlock = null
     this.prevBreakState = null
   }
@@ -89,8 +95,8 @@ export class MouseManager {
     // try { this.bot.stopDigging() } catch (err) { console.warn('stopDiggingCompletely', err) }
     try { this.bot.stopDigging() } catch (err) { }
     this.breakStartTime = undefined
-    if (this.cursorBlock) {
-      this.resetDiggingVisual(this.cursorBlock)
+    if (this.currentBreakBlock) {
+      this.resetDiggingVisual(this.currentBreakBlock.block)
     }
     this.debugDigStatus = `stopped by ${reason}`
     this.debugLastStopReason = reason
@@ -101,6 +107,10 @@ export class MouseManager {
     this.bot.on('physicsTick', () => {
       if (this.rightClickDelay < 4) this.rightClickDelay++
       this.update()
+    })
+
+    this.bot.on('end', () => {
+      this.ended = true
     })
 
     this.bot.on('diggingCompleted', (block) => {
@@ -135,6 +145,7 @@ export class MouseManager {
         this.bot.swingArm('right')
         this.bot.emit('botArmSwingStart', 'right')
         this.swingTimeout = setTimeout(() => {
+          if (this.ended) return
           this.bot.emit('botArmSwingEnd', 'right')
           this.swingTimeout = null
         }, 250)
@@ -299,7 +310,16 @@ export class MouseManager {
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
         const faceNum: number = cursorBlock['face']
         const direction = directionToVector[faceNum]!
-        const blockPlaced = botTryPlaceBlockPrediction(this.bot, cursorBlock, faceNum, delta, this.settings.blockPlacePrediction ?? true, this.settings.blockPlacePredictionHandler ?? null)
+        const blockPlaced = botTryPlaceBlockPrediction(
+          this.bot,
+          cursorBlock,
+          faceNum,
+          delta,
+          this.settings.blockPlacePrediction ?? true,
+          this.settings.blockPlacePredictionDelay ?? 0,
+          this.settings.blockPlacePredictionHandler ?? null,
+          this.settings.blockPlacePredictionCheckEntities ?? true
+        )
         if (blockPlaced) {
           this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' })
             .catch(console.warn)
@@ -360,7 +380,6 @@ export class MouseManager {
     // We stopped breaking
     if (!this.buttons[0] && this.lastButtons[0]) {
       this.stopDiggingCompletely('user stopped')
-      this.bot.emit('botArmSwingEnd', 'right')
     }
 
     const onGround = this.bot.entity?.onGround || this.bot.game.gameMode === 'creative'
@@ -378,7 +397,7 @@ export class MouseManager {
 
   private updateBreakingBlockState(cursorBlockDiggable: Block | null) {
     // Calculate and emit break progress
-    if (cursorBlockDiggable && this.breakStartTime && this.bot.game.gameMode !== 'creative') {
+    if (cursorBlockDiggable && this.breakStartTime !== undefined && this.bot.game.gameMode !== 'creative') {
       const elapsed = performance.now() - this.breakStartTime
       const time = this.bot.digTime(cursorBlockDiggable)
       if (time !== this.currentDigTime) {

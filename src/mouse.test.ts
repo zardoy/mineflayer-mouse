@@ -19,7 +19,7 @@ function createMockBot(testState: TestState): Bot {
     // Track emitted events
     const originalEmit = bot.emit
     bot.emit = function (event: string, ...args: any[]) {
-        testState.emittedEvents.push(event)
+        testState.emittedEvents.push(`${event}(${args.map(arg => arg && typeof arg === 'object' ? 'object' : `${arg}`).join(', ')})`)
         //@ts-ignore
         return originalEmit.call(this, event, ...args)
     }
@@ -146,6 +146,10 @@ describe('MouseManager', () => {
         expect(actions).toEqual(expectedActions)
         testState.methodCalls = [] // Clear after assertion
     }
+    const ASSERT_EVENTS = (expectedEvents: string[]) => {
+        expect(testState.emittedEvents).toEqual(expectedEvents)
+        testState.emittedEvents = [] // Clear after assertion
+    }
     const SET_CURSOR_ENTITY = (entity: Entity = createMockEntity()) => {
         vi.mocked(entityRaycast.raycastEntity).mockReturnValue(entity)
         return entity
@@ -168,17 +172,28 @@ describe('MouseManager', () => {
     })
 
     describe('Block Breaking', () => {
-        it('Survival hold break sequence', () => {
+        it('Survival hold break sequence multi-test', () => {
             const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
 
             LEFT_START()
             ASSERT_ACTIONS(['stopdig', 'startdig'])
+            ASSERT_EVENTS(['highlightCursorBlock(object)', 'startDigging(object)', 'botArmSwingStart(right)'])
+
+            vi.advanceTimersByTime(100)
+            UPDATE()
+            ASSERT_EVENTS(['blockBreakProgressStage(object, 1)'])
 
             SERVER_DIG_COMPLETE(block1)
 
             SET_CURSOR_BLOCK(new Vec3(2, 2, 2))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
+            ASSERT_EVENTS([
+                "diggingCompleted(object)",
+                "blockBreakProgressStage(object, null)",
+                "botArmSwingEnd(right)",
+                "highlightCursorBlock(object)",
+            ])
 
             vi.advanceTimersByTime(400)
             UPDATE()
@@ -208,6 +223,32 @@ describe('MouseManager', () => {
             ASSERT_ACTIONS(['startdig'])
             LEFT_END()
             ASSERT_ACTIONS(['stopdig'])
+        })
+
+        it('Validate events after in-mid block change', () => {
+            const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
+            LEFT_START()
+            ASSERT_ACTIONS(['stopdig', 'startdig'])
+            vi.advanceTimersByTime(100)
+            UPDATE()
+            testState.emittedEvents = []
+            CLEAR_CURSOR_BLOCK()
+            UPDATE()
+            ASSERT_ACTIONS(['stopdig'])
+            ASSERT_EVENTS(['highlightCursorBlock(undefined)', 'blockBreakProgressStage(object, null)', 'botArmSwingEnd(right)'])
+        })
+        it('Validate events after complete block change', () => {
+            const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
+            LEFT_START()
+            ASSERT_ACTIONS(['stopdig', 'startdig'])
+            vi.advanceTimersByTime(100)
+            UPDATE()
+            testState.emittedEvents = []
+            SERVER_DIG_COMPLETE(block1)
+            CLEAR_CURSOR_BLOCK()
+            UPDATE()
+            ASSERT_ACTIONS(['stopdig'])
+            ASSERT_EVENTS(['diggingCompleted(object)', 'blockBreakProgressStage(object, null)', 'botArmSwingEnd(right)', 'highlightCursorBlock(undefined)'])
         })
 
         it('Creative hold break sequence', () => {
