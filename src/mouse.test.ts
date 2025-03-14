@@ -18,6 +18,8 @@ function createMockBot(testState: TestState): Bot {
 
     // Track emitted events
     const originalEmit = bot.emit
+    bot.version = '1.20.4'
+    bot.entities = {} as any
     bot.emit = function (event: string, ...args: any[]) {
         testState.emittedEvents.push(`${event}(${args.map(arg => arg && typeof arg === 'object' ? 'object' : `${arg}`).join(', ')})`)
         //@ts-ignore

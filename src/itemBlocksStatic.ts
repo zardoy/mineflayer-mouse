@@ -1,47 +1,3 @@
-export const activatableItems = [
-  'egg',
-  'fishing_rod',
-  'firework_rocket',
-  'fire_charge',
-  'snowball',
-  'ender_pearl',
-  'experience_bottle',
-  'potion',
-  'glass_bottle',
-  'bucket',
-  'water_bucket',
-  'lava_bucket',
-  'milk_bucket',
-  'minecart',
-  'boat',
-  'tnt_minecart',
-  'chest_minecart',
-  'hopper_minecart',
-  'command_block_minecart',
-  'armor_stand',
-  'lead',
-  'name_tag',
-  'writable_book',
-  'written_book',
-  'compass',
-  'clock',
-  'filled_map',
-  'empty_map',
-  'map',
-  'shears',
-  'carrot_on_a_stick',
-  'warped_fungus_on_a_stick',
-  'spawn_egg',
-  'trident',
-  'crossbow',
-  'elytra',
-  'shield',
-  'turtle_helmet',
-  'bow',
-  'crossbow',
-  'bucket_of_cod'
-] as const
-
 // these have
 // protected InteractionResult useWithoutItem
 // but not protected InteractionResult useItemOn
@@ -86,8 +42,4 @@ export const itemToBlockRemaps = {
 
 export function isBlockActivatable(blockName: string): boolean {
   return activatableBlockWithoutItemPatterns.some(pattern => pattern.test(blockName))
-}
-
-export function isItemActivatable(itemName: string): boolean {
-  return activatableItems.includes(itemName as any)
 }

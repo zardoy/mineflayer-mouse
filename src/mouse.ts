@@ -3,10 +3,10 @@ import { Vec3 } from 'vec3'
 import { Entity } from 'prismarine-entity'
 import { Block } from 'prismarine-block'
 import { EventEmitter } from 'events'
-import { isItemActivatable } from './itemBlocksStatic'
 import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
 import { BlockPlacePredictionOverride, botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
+import { isItemActivatable } from './itemActivatable'
 
 export interface BlockInteractionHandler {
   test: (block: Block) => boolean
@@ -303,7 +303,7 @@ export class MouseManager {
       }
     }
 
-    const activateMain = this.bot.heldItem && isItemActivatable(this.bot.heldItem.name)
+    const activateMain = this.bot.heldItem && isItemActivatable(this.bot.version, this.bot.heldItem)
 
     if (!handled) {
       if (cursorBlock && !activateMain) {
@@ -339,7 +339,7 @@ export class MouseManager {
         this.bot.emit('botArmSwingStart', 'right')
         this.bot.emit('botArmSwingEnd', 'right')
       } else {
-        const offhand = activateMain ? false : isItemActivatable(this.bot.inventory.slots[45]?.name ?? '')
+        const offhand = activateMain ? false : isItemActivatable(this.bot.version, this.bot.inventory.slots[45]!)
         const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
         if (item) {
           this.startUsingItem(item, offhand)

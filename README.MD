@@ -2,7 +2,7 @@
 
 First-class **battle-tested** simple API for emulating real Minecraft mouse control in Mineflayer. You should use it for digging (mining) or placing blocks and entity attacking or using and using items!
 
-> Note: This module will be deprecated once the functionality is merged into the main `mineflayer` library with 1:1.
+> Note: This module will be deprecated once the functionality is merged into the main `mineflayer` library with 1:1 implementation.
 
 ## Installation
 
@@ -19,7 +19,7 @@ pnpm add mineflayer-mouse
 
 ## Philosophy
 
-The world interaction system in Minecraft is *complex* and not easy to replicate. We have two hands and different holding item/blocks logic along with different entities and activatable blocks in the world. For example:
+The world interaction system in Minecraft is *complex* and not easy to replicate. We have two hands and different holding item/blocks logic along with different entities and activatable items and blocks in the world. For example:
 
 - Would what happen if you right click on a crafting table with a torch in left hand and potion in right hand? But if you are shift clicking it? But if you are loooking at entity? Should the item be used or entity interaction happen?
 
@@ -60,6 +60,7 @@ bot.rightClickStart()
 ## Roadmap
 
 - [X] Tests
-- [ ] Block placement prediction
-- [ ] Raycast, item/block activatable, block prediction overrides
-- [ ] Better item activation (on block, on entity)
+- [X] Block placement prediction
+- [X] Raycast, item/block activatable, block prediction overrides
+- [X] Better item activation
+- [ ] Validate packets on item activation on entity
