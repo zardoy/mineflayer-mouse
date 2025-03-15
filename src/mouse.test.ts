@@ -177,16 +177,18 @@ describe('MouseManager', () => {
         it('Survival hold break sequence multi-test', () => {
             const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
 
+            // DIG START
             LEFT_START()
             ASSERT_ACTIONS(['stopdig', 'startdig'])
             ASSERT_EVENTS(['highlightCursorBlock(object)', 'startDigging(object)', 'botArmSwingStart(right)'])
 
+            // DIG PROGRESS
             vi.advanceTimersByTime(100)
             UPDATE()
             ASSERT_EVENTS(['blockBreakProgressStage(object, 1)'])
 
+            // DIG COMPLETE -> NEXT BLOCK -> WAIT
             SERVER_DIG_COMPLETE(block1)
-
             SET_CURSOR_BLOCK(new Vec3(2, 2, 2))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
@@ -197,28 +199,37 @@ describe('MouseManager', () => {
                 "highlightCursorBlock(object)",
             ])
 
+            // DIG START
             vi.advanceTimersByTime(400)
             UPDATE()
             ASSERT_ACTIONS(['startdig'])
+            ASSERT_EVENTS(["startDigging(object)", "botArmSwingStart(right)"])
 
+            // DIG IN-MID BLOCK CHANGE (IMMEDIATELY SWITCH DIGGING)
             const block2 = SET_CURSOR_BLOCK(new Vec3(3, 3, 3))
             UPDATE()
             ASSERT_ACTIONS(['stopdig', 'startdig'])
+            ASSERT_EVENTS(["highlightCursorBlock(object)", "startDigging(object)", "botArmSwingStart(right)"])
 
+            // DIG PROGRESS
             vi.advanceTimersByTime(400)
             UPDATE()
             ASSERT_ACTIONS([])
+            ASSERT_EVENTS(["blockBreakProgressStage(object, 4)"])
 
+            // DIG COMPLETE -> NEXT BLOCK -> WAIT
             SERVER_DIG_COMPLETE(block2)
-
             SET_CURSOR_BLOCK(new Vec3(4, 4, 4))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
+            ASSERT_EVENTS(["diggingCompleted(object)", "blockBreakProgressStage(object, null)", "botArmSwingEnd(right)", "highlightCursorBlock(object)"])
 
+            // DIG START
             vi.advanceTimersByTime(400)
             UPDATE()
             ASSERT_ACTIONS(['startdig'])
 
+            // WE STOP DIGGING
             LEFT_END()
             ASSERT_ACTIONS(['stopdig'])
             LEFT_START()

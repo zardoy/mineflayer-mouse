@@ -7,7 +7,8 @@ import { debug } from './debug'
 
 // TODO support REDIRECTABLE_PROJECTILE
 
-const allEntiiyNames = Object.fromEntries([...entitiesStaticData.attackable, ...entitiesStaticData.notAttackable].map(x => [x, true]))
+const allEntityNames = Object.fromEntries([...entitiesStaticData.attackable, ...entitiesStaticData.notAttackable].map(x => [x, true]))
+const attackableEntityNames = entitiesStaticData.attackable
 
 export const isEntityAttackable = (data: IndexedData, entity: Entity) => {
     if (!entity.name) throw new Error('Entity has no name')
@@ -15,9 +16,9 @@ export const isEntityAttackable = (data: IndexedData, entity: Entity) => {
 
     const entityRename = entitiesStaticData.entityRenames[entity.name] || entitiesStaticData.entityRenames[snakeCase(entity.name)]
     let latestEntityName = entityRename || entity.name
-    if (!allEntiiyNames[latestEntityName]) {
+    if (!allEntityNames[latestEntityName]) {
         latestEntityName = snakeCase(latestEntityName)
-        if (!allEntiiyNames[latestEntityName]) {
+        if (!allEntityNames[latestEntityName]) {
             debug(`Cannot find entity ${latestEntityName} in entityData.json`)
             return false
         }
@@ -25,7 +26,7 @@ export const isEntityAttackable = (data: IndexedData, entity: Entity) => {
 
     const hardcodedCheck = hardcodedChecks[latestEntityName]
     if (hardcodedCheck) return hardcodedCheck(entity, originalEntityData)
-    return true
+    return attackableEntityNames.includes(latestEntityName)
 }
 
 const hardcodedChecks = {
