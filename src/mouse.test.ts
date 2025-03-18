@@ -195,7 +195,6 @@ describe('MouseManager', () => {
             ASSERT_EVENTS([
                 "diggingCompleted(object)",
                 "blockBreakProgressStage(object, null)",
-                "botArmSwingEnd(right)",
                 "highlightCursorBlock(object)",
             ])
 
@@ -222,7 +221,7 @@ describe('MouseManager', () => {
             SET_CURSOR_BLOCK(new Vec3(4, 4, 4))
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
-            ASSERT_EVENTS(["diggingCompleted(object)", "blockBreakProgressStage(object, null)", "botArmSwingEnd(right)", "highlightCursorBlock(object)"])
+            ASSERT_EVENTS(["diggingCompleted(object)", "blockBreakProgressStage(object, null)", "highlightCursorBlock(object)"])
 
             // DIG START
             vi.advanceTimersByTime(400)
@@ -261,7 +260,7 @@ describe('MouseManager', () => {
             CLEAR_CURSOR_BLOCK()
             UPDATE()
             ASSERT_ACTIONS(['stopdig'])
-            ASSERT_EVENTS(['diggingCompleted(object)', 'blockBreakProgressStage(object, null)', 'botArmSwingEnd(right)', 'highlightCursorBlock(undefined)'])
+            ASSERT_EVENTS(['diggingCompleted(object)', 'blockBreakProgressStage(object, null)', 'highlightCursorBlock(undefined)', 'botArmSwingEnd(right)'])
         })
 
         it('Creative hold break sequence', () => {

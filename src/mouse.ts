@@ -86,12 +86,11 @@ export class MouseManager {
 
   resetDiggingVisual(block: Block) {
     this.bot.emit('blockBreakProgressStage', block, null)
-    this.bot.emit('botArmSwingEnd', 'right')
     this.currentBreakBlock = null
     this.prevBreakState = null
   }
 
-  stopDiggingCompletely(reason: string) {
+  stopDiggingCompletely(reason: string, tempStopping = false) {
     // try { this.bot.stopDigging() } catch (err) { console.warn('stopDiggingCompletely', err) }
     try { this.bot.stopDigging() } catch (err) { }
     this.breakStartTime = undefined
@@ -101,6 +100,9 @@ export class MouseManager {
     this.debugDigStatus = `stopped by ${reason}`
     this.debugLastStopReason = reason
     this.currentDigTime = null
+    if (!tempStopping) {
+      this.bot.emit('botArmSwingEnd', 'right')
+    }
   }
 
   private initBotEvents() {
@@ -199,6 +201,8 @@ export class MouseManager {
   }
 
   activateEntity(entity: Entity) {
+    this.bot.emit('botArmSwingStart', 'right')
+    this.bot.emit('botArmSwingEnd', 'right')
     // mineflayer has completely wrong implementation of this action
     if (this.bot.supportFeature('armAnimationBeforeUse')) {
       this.bot.swingArm('right')
@@ -374,7 +378,7 @@ export class MouseManager {
 
   private updateBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean) {
     if (cursorChanged) {
-      this.stopDiggingCompletely('block change delay')
+      this.stopDiggingCompletely('block change delay', !!cursorBlockDiggable)
     }
 
     // We stopped breaking
@@ -420,14 +424,17 @@ export class MouseManager {
     const enoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
-    if (
-      cursorBlockDiggable
-      && onGround
-      && (justStartingNewBreak || (enoughTimePassed && (blockChanged || breakTimeConditionsChanged)))
-    ) {
-      this.startBreaking(cursorBlockDiggable)
+    if (cursorBlockDiggable) {
+      if (
+        onGround
+        && (justStartingNewBreak || (enoughTimePassed && (blockChanged || breakTimeConditionsChanged)))
+      ) {
+        this.startBreaking(cursorBlockDiggable)
+      }
     } else if (performance.now() - this.lastSwing > 200) {
       this.bot.swingArm('right')
+      this.bot.emit('botArmSwingStart', 'right')
+      this.bot.emit('botArmSwingEnd', 'right')
       this.lastSwing = performance.now()
     }
   }
