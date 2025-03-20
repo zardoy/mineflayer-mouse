@@ -1,4 +1,4 @@
-# Mineflayer Mouse
+# <img src="assets/mouse.svg" width="28" height="28" alt="mineflayer-mouse"> Mineflayer Mouse
 
 First-class **battle-tested** simple API for emulating real Minecraft mouse control in Mineflayer. You should use it for digging (mining) or placing blocks and entity attacking or using and using items!
 

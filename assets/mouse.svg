@@ -1,0 +1,8 @@
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <defs>
+        <linearGradient id="mouseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="100%" style="stop-color:#00ffff"/>
+        </linearGradient>
+    </defs>
+    <path d="M6 3h12v18H6V3zm2 2v4h3V5H8zm5 0v4h3V5h-3zm3 6H8v8h8v-8z" fill="currentColor" stroke="url(#mouseGradient)" stroke-width="1"/>
+</svg>
