@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { getRenamedData } from './blockRenames'
+import { getRenamedData } from '../src/blockRenames'
 
 test('works', () => {
   expect(getRenamedData('blocks', 'short_grass', '1.20.3', '1.8.8')).toEqual('tallgrass')

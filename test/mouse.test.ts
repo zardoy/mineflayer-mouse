@@ -3,9 +3,9 @@ import { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import { Block } from 'prismarine-block'
 import { Entity } from 'prismarine-entity'
-import { MouseManager, inject } from './mouse'
+import { MouseManager, inject } from '../src/mouse'
 import { EventEmitter } from 'events'
-import * as entityRaycast from './entityRaycast'
+import * as entityRaycast from '../src/entityRaycast'
 
 // Track method calls and events
 interface TestState {
@@ -104,7 +104,7 @@ function createMockEntity(): Entity {
 }
 
 // At the top of the file, before tests
-vi.mock('./entityRaycast', () => ({
+vi.mock('../src/entityRaycast', () => ({
     raycastEntity: vi.fn().mockImplementation((bot) => null)
 }))
 
