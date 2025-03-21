@@ -19,6 +19,8 @@ pnpm add mineflayer-mouse
 
 ## Philosophy
 
+> Note: this library is used in [minecraft web client](http://github.com/zardoy/prismarine-web-client/) project. Try mineflayer viewer lib: [mcraft-fun-mineflayer](https://npmjs.com/mcraft-fun-mineflayer) to see it in action!
+
 The world interaction system in Minecraft is *complex* and not easy to replicate. We have two hands and different holding item/blocks logic along with different entities and activatable items and blocks in the world. For example:
 
 - Would what happen if you right click on a crafting table with a torch in left hand and potion in right hand? But if you are shift clicking it? But if you are loooking at entity? Should the item be used or entity interaction happen?
