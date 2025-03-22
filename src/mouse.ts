@@ -356,6 +356,7 @@ export class MouseManager {
 
   private startUsingItem(item: { name: string }, isOffhand: boolean) {
     if (this.itemBeingUsed) return // hands busy
+    if (isOffhand && this.bot.supportFeature('doesntHaveOffHandSlot')) return
     const slot = isOffhand ? 45 : this.bot.quickBarSlot
     this.bot.activateItem(isOffhand)
     this.itemBeingUsed = {
