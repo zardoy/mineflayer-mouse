@@ -423,11 +423,11 @@ describe('MouseManager', () => {
 
             RIGHT_START()
             PHYSICS_TICK()
-            ASSERT_ACTIONS(['activateBlock'], true)
+            ASSERT_ACTIONS(['placeBlock'], true)
 
             // Should activate again after delay
             for (let i = 0; i < 5; i++) PHYSICS_TICK()
-            ASSERT_ACTIONS(['activateBlock'], true)
+            ASSERT_ACTIONS(['placeBlock'], true)
 
             RIGHT_END()
             PHYSICS_TICK()
