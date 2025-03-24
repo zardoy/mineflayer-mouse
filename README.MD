@@ -65,4 +65,5 @@ bot.rightClickStart()
 - [X] Block placement prediction
 - [X] Raycast, item/block activatable, block prediction overrides
 - [X] Better item activation
+- [ ] Arm animation & use item on block place check world env
 - [ ] Validate packets on item activation on entity

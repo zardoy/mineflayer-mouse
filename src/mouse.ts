@@ -310,11 +310,12 @@ export class MouseManager {
     const activateMain = this.bot.heldItem && isItemActivatable(this.bot.version, this.bot.heldItem)
 
     if (!handled) {
-      if (cursorBlock && !activateMain) {
+      let possiblyPlaceOffhand = () => {}
+      if (cursorBlock) {
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
         const faceNum: number = cursorBlock['face']
         const direction = directionToVector[faceNum]!
-        const blockPlaced = botTryPlaceBlockPrediction(
+        const blockPlacementPredicted = botTryPlaceBlockPrediction(
           this.bot,
           cursorBlock,
           faceNum,
@@ -324,34 +325,49 @@ export class MouseManager {
           this.settings.blockPlacePredictionHandler ?? null,
           this.settings.blockPlacePredictionCheckEntities ?? true
         )
-        if (blockPlaced) {
-          this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' })
-            .catch(console.warn)
-        } else {
-          // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
-          const oldLookAt = this.bot.lookAt
-          //@ts-ignore
-          this.bot.lookAt = (pos) => { }
-          // TODO it still must 1. fire block place
-          this.bot.activateBlock(cursorBlock, directionToVector[cursorBlock['face']], delta)
-            .finally(() => {
-              this.bot.lookAt = oldLookAt
-            })
-            .catch(console.warn)
-          // this.bot.swingArm('right')
+        // always emit block_place when looking at block
+        this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' }).catch(console.warn)
+        if (!this.bot.supportFeature('doesntHaveOffHandSlot')) {
+          possiblyPlaceOffhand = () => {
+            this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore', offhand: true }).catch(console.warn)
+          }
         }
-        this.bot.emit('botArmSwingStart', 'right')
-        this.bot.emit('botArmSwingEnd', 'right')
-      } else {
+        // if (!blockPlacementPredicted) {
+        //   // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
+        //   const oldLookAt = this.bot.lookAt
+        //   //@ts-ignore
+        //   this.bot.lookAt = (pos) => { }
+        //   // TODO it still must 1. fire block place
+        //   this.bot.activateBlock(cursorBlock, directionToVector[cursorBlock['face']], delta)
+        //     .finally(() => {
+        //       this.bot.lookAt = oldLookAt
+        //     })
+        //     .catch(console.warn)
+        // }
+      }
+
+      if (activateMain || !cursorBlock) {
         const offhand = activateMain ? false : isItemActivatable(this.bot.version, this.bot.inventory.slots[45]!)
         const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
         if (item) {
           this.startUsingItem(item, offhand)
         }
       }
+
+      possiblyPlaceOffhand()
+      // todo offhand
+      this.bot.swingArm('right')
+      this.bot.emit('botArmSwingStart', 'right')
+      this.bot.emit('botArmSwingEnd', 'right')
     }
 
     this.rightClickDelay = 0
+  }
+
+  digTime(block: Block) {
+    const time = this.bot.digTime(block)
+    if (!time) return time
+    return time
   }
 
   private startUsingItem(item: { name: string }, isOffhand: boolean) {
@@ -366,6 +382,10 @@ export class MouseManager {
     }
     this.bot.emit('startUsingItem', item, slot, isOffhand, -1)
   }
+
+  // TODO use it when item cant be used (define another map)
+  // useItemOnce(item: { name: string }, isOffhand: boolean) {
+  // }
 
   private stopUsingItem() {
     if (this.itemBeingUsed) {
@@ -404,7 +424,7 @@ export class MouseManager {
     // Calculate and emit break progress
     if (cursorBlockDiggable && this.breakStartTime !== undefined && this.bot.game.gameMode !== 'creative') {
       const elapsed = performance.now() - this.breakStartTime
-      const time = this.bot.digTime(cursorBlockDiggable)
+      const time = this.digTime(cursorBlockDiggable)
       if (time !== this.currentDigTime) {
         console.warn('dig time changed! cancelling!', this.currentDigTime, '->', time)
         this.stopDiggingCompletely('dig time changed')
@@ -443,7 +463,7 @@ export class MouseManager {
   private startBreaking(block: Block) {
     this.lastDugBlock = null
     this.debugDigStatus = 'breaking'
-    this.currentDigTime = this.bot.digTime(block)
+    this.currentDigTime = this.digTime(block)
     this.breakStartTime = performance.now()
 
     // Reset break state when starting new break
