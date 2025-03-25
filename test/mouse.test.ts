@@ -33,6 +33,9 @@ function createMockBot(testState: TestState): Bot {
     } as any
     bot.game = { gameMode: 'survival' } as any
     bot._client = new EventEmitter() as any
+    bot._client.write = vi.fn().mockImplementation((packet) => {
+        testState.methodCalls.push(packet)
+    })
     bot.canDigBlock = () => true
     bot.digTime = () => 1000 // 1 second break time for survival mode
     bot.blockAtCursor = () => null
@@ -65,8 +68,8 @@ function createMockBot(testState: TestState): Bot {
     } as any
     bot.getControlState = () => false
     //@ts-ignore
-    bot._placeBlockWithOptions = vi.fn().mockImplementation(async () => {
-        testState.methodCalls.push('placeBlock')
+    bot._block_placeWithOptions = vi.fn().mockImplementation(async () => {
+        testState.methodCalls.push('block_place')
     })
     bot.activateBlock = vi.fn().mockImplementation(async () => {
         testState.methodCalls.push('activateBlock')
@@ -400,16 +403,16 @@ describe('MouseManager', () => {
 
             RIGHT_START()
             PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'], true)
+            ASSERT_ACTIONS(['block_place'], true)
 
             // Should place again after delay
             for (let i = 0; i < 5; i++) PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'])
+            ASSERT_ACTIONS(['block_place'])
             UPDATE()
             ASSERT_ACTIONS([])
 
             for (let i = 0; i < 5; i++) PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'])
+            ASSERT_ACTIONS(['block_place'])
             UPDATE()
 
             RIGHT_END()
@@ -423,11 +426,11 @@ describe('MouseManager', () => {
 
             RIGHT_START()
             PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'], true)
+            ASSERT_ACTIONS(['block_place'], true)
 
             // Should activate again after delay
             for (let i = 0; i < 5; i++) PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'], true)
+            ASSERT_ACTIONS(['block_place'], true)
 
             RIGHT_END()
             PHYSICS_TICK()
@@ -439,16 +442,16 @@ describe('MouseManager', () => {
 
             RIGHT_START()
             PHYSICS_TICK()
-            ASSERT_ACTIONS(['placeBlock'], true)
+            ASSERT_ACTIONS(['block_place'], true)
 
             RIGHT_END()
 
             SET_CURSOR_BLOCK(new Vec3(2, 2, 2))
 
             RIGHT_START()
-            ASSERT_ACTIONS(['placeBlock'], true)
+            ASSERT_ACTIONS(['block_place'], true)
             // for (let i = 0; i < 5; i++) PHYSICS_TICK()
-            // ASSERT_ACTIONS(['placeBlock'], true)
+            // ASSERT_ACTIONS(['block_place'], true)
 
             RIGHT_END()
             PHYSICS_TICK()
