@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer'
 import { Vec3 } from 'vec3'
 import { Entity } from 'prismarine-entity'
+import PrismarineItem from 'prismarine-item'
 import { Block } from 'prismarine-block'
 import { EventEmitter } from 'events'
 import { debug } from './debug'
@@ -290,6 +291,72 @@ export class MouseManager {
     return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
   }
 
+  async placeBlock(cursorBlock: Block, direction: Vec3, delta: Vec3, offhand: boolean, forceLook: 'ignore' | 'lookAt' | 'lookAtForce' = 'ignore') {
+    const handToPlaceWith = offhand ? 1 : 0
+    if (offhand && this.bot.supportFeature('doesntHaveOffHandSlot')) {
+      return
+    }
+
+    let dx = 0.5 + direction.x * 0.5
+    let dy = 0.5 + direction.y * 0.5
+    let dz = 0.5 + direction.z * 0.5
+
+    if (delta) {
+      dx = delta.x
+      dy = delta.y
+      dz = delta.z
+    }
+    if (forceLook !== 'ignore') {
+      await this.bot.lookAt(cursorBlock.position.offset(dx, dy, dz), forceLook === 'lookAtForce')
+    }
+    const pos = cursorBlock.position
+
+    const Item = PrismarineItem(this.bot.version)
+    const { bot } = this
+
+    if (bot.supportFeature('blockPlaceHasHeldItem')) {
+      const packet = {
+        location: pos,
+        direction: vectorToDirection(direction),
+        heldItem: Item.toNotch(bot.heldItem),
+        cursorX: Math.floor(dx * 16),
+        cursorY: Math.floor(dy * 16),
+        cursorZ: Math.floor(dz * 16)
+      }
+      bot._client.write('block_place', packet)
+    } else if (bot.supportFeature('blockPlaceHasHandAndIntCursor')) {
+      bot._client.write('block_place', {
+        location: pos,
+        direction: vectorToDirection(direction),
+        hand: handToPlaceWith,
+        cursorX: Math.floor(dx * 16),
+        cursorY: Math.floor(dy * 16),
+        cursorZ: Math.floor(dz * 16)
+      })
+    } else if (bot.supportFeature('blockPlaceHasHandAndFloatCursor')) {
+      bot._client.write('block_place', {
+        location: pos,
+        direction: vectorToDirection(direction),
+        hand: handToPlaceWith,
+        cursorX: dx,
+        cursorY: dy,
+        cursorZ: dz
+      })
+    } else if (bot.supportFeature('blockPlaceHasInsideBlock')) {
+      bot._client.write('block_place', {
+        location: pos,
+        direction: vectorToDirection(direction),
+        hand: handToPlaceWith,
+        cursorX: dx,
+        cursorY: dy,
+        cursorZ: dz,
+        insideBlock: false,
+        sequence: 0, // 1.19.0
+        worldBorderHit: false // 1.21.3
+      })
+    }
+  }
+
   private updatePlaceInteract(cursorBlock: Block | null) {
     // Check for special block handlers first
     let handled = false
@@ -315,6 +382,7 @@ export class MouseManager {
         const delta = cursorBlock['intersect'].minus(cursorBlock.position)
         const faceNum: number = cursorBlock['face']
         const direction = directionToVector[faceNum]!
+        // TODO support offhand prediction
         const blockPlacementPredicted = botTryPlaceBlockPrediction(
           this.bot,
           cursorBlock,
@@ -325,25 +393,16 @@ export class MouseManager {
           this.settings.blockPlacePredictionHandler ?? null,
           this.settings.blockPlacePredictionCheckEntities ?? true
         )
+        if (blockPlacementPredicted) {
+          this.bot.emit('mouseBlockPlaced', cursorBlock, direction, delta, false, true)
+        }
         // always emit block_place when looking at block
-        this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore' }).catch(console.warn)
+        this.placeBlock(cursorBlock, direction, delta, false)
         if (!this.bot.supportFeature('doesntHaveOffHandSlot')) {
           possiblyPlaceOffhand = () => {
-            this.bot['_placeBlockWithOptions'](cursorBlock, direction, { delta, forceLook: 'ignore', offhand: true }).catch(console.warn)
+            this.placeBlock(cursorBlock, direction, delta, true)
           }
         }
-        // if (!blockPlacementPredicted) {
-        //   // https://discord.com/channels/413438066984747026/413438150594265099/1198724637572477098
-        //   const oldLookAt = this.bot.lookAt
-        //   //@ts-ignore
-        //   this.bot.lookAt = (pos) => { }
-        //   // TODO it still must 1. fire block place
-        //   this.bot.activateBlock(cursorBlock, directionToVector[cursorBlock['face']], delta)
-        //     .finally(() => {
-        //       this.bot.lookAt = oldLookAt
-        //     })
-        //     .catch(console.warn)
-        // }
       }
 
       if (activateMain || !cursorBlock) {
@@ -580,8 +639,26 @@ declare module 'mineflayer' {
     'startUsingItem': (item: { name: string }, slot: number, isOffhand: boolean, duration: number) => void
     'stopUsingItem': (item: { name: string }, slot: number, isOffhand: boolean) => void
     'highlightCursorBlock': (data?: { block: Block }) => void
+    'mouseBlockPlaced': (block: Block, direction: Vec3, delta: Vec3, offhand: boolean, wasPredicted: boolean) => void
   }
 }
 
 
 export { MouseManager as MousePlugin }
+
+function vectorToDirection (v: Vec3) {
+  if (v.y < 0) {
+    return 0
+  } else if (v.y > 0) {
+    return 1
+  } else if (v.z < 0) {
+    return 2
+  } else if (v.z > 0) {
+    return 3
+  } else if (v.x < 0) {
+    return 4
+  } else if (v.x > 0) {
+    return 5
+  }
+  throw new Error(`invalid direction vector ${v}`)
+}
