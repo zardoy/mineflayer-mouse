@@ -22,6 +22,8 @@ export interface ItemUseState {
 
 export interface BotPluginSettings {
   /** @default true */
+  warnings?: boolean
+  /** @default true */
   blockPlacePrediction?: boolean
   /** @default 0 */
   blockPlacePredictionDelay?: number
@@ -582,7 +584,20 @@ export class MouseManager {
   }
 }
 
+export const versionToNumber = (ver: string) => {
+  const [x, y = '0', z = '0'] = ver.split('.')
+  return +`${x!.padStart(2, '0')}${y.padStart(2, '0')}${z.padStart(2, '0')}`
+}
+
+const OLD_UNSUPPORTED_VERSIONS = versionToNumber('1.16.5')
+
+let warningPrinted = false
 export function inject(bot: Bot, settings: BotPluginSettings) {
+  if (settings.warnings !== false && !warningPrinted && versionToNumber(bot.version) <= OLD_UNSUPPORTED_VERSIONS) {
+    console.warn(`[mineflayer-mouse] This version of Minecraft (${bot.version}) has known issues like doors interactions or item using. Please upgrade to a newer, better tested version for now.`)
+    warningPrinted = true
+  }
+
   const mouse = new MouseManager(bot, settings)
   bot.mouse = mouse
 
