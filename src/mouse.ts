@@ -293,7 +293,7 @@ export class MouseManager {
     return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
   }
 
-  async placeBlock(cursorBlock: Block, direction: Vec3, delta: Vec3, offhand: boolean, forceLook: 'ignore' | 'lookAt' | 'lookAtForce' = 'ignore') {
+  async placeBlock(cursorBlock: Block, direction: Vec3, delta: Vec3, offhand: boolean, forceLook: 'ignore' | 'lookAt' | 'lookAtForce' = 'ignore', doClientSwing = true) {
     const handToPlaceWith = offhand ? 1 : 0
     if (offhand && this.bot.supportFeature('doesntHaveOffHandSlot')) {
       return
@@ -357,6 +357,14 @@ export class MouseManager {
         worldBorderHit: false // 1.21.3
       })
     }
+
+    if (!offhand) {
+      this.bot.swingArm(offhand ? 'left' : 'right')
+    }
+    if (doClientSwing) {
+      this.bot.emit('botArmSwingStart', offhand ? 'left' : 'right')
+      this.bot.emit('botArmSwingEnd', offhand ? 'left' : 'right')
+    }
   }
 
   private updatePlaceInteract(cursorBlock: Block | null) {
@@ -377,6 +385,7 @@ export class MouseManager {
     }
 
     const activateMain = this.bot.heldItem && isItemActivatable(this.bot.version, this.bot.heldItem)
+    const offHandItem = this.bot.inventory.slots[45]
 
     if (!handled) {
       let possiblyPlaceOffhand = () => {}
@@ -399,27 +408,23 @@ export class MouseManager {
           this.bot.emit('mouseBlockPlaced', cursorBlock, direction, delta, false, true)
         }
         // always emit block_place when looking at block
-        this.placeBlock(cursorBlock, direction, delta, false)
+        this.placeBlock(cursorBlock, direction, delta, false, undefined)
         if (!this.bot.supportFeature('doesntHaveOffHandSlot')) {
           possiblyPlaceOffhand = () => {
-            this.placeBlock(cursorBlock, direction, delta, true)
+            this.placeBlock(cursorBlock, direction, delta, true, undefined, false /* todo. complex. many scenarious like pickaxe or food */)
           }
         }
       }
 
       if (activateMain || !cursorBlock) {
-        const offhand = activateMain ? false : isItemActivatable(this.bot.version, this.bot.inventory.slots[45]!)
-        const item = offhand ? this.bot.inventory.slots[45] : this.bot.heldItem
+        const offhand = activateMain ? false : isItemActivatable(this.bot.version, offHandItem!)
+        const item = offhand ? offHandItem : this.bot.heldItem
         if (item) {
           this.startUsingItem(item, offhand)
         }
       }
 
       possiblyPlaceOffhand()
-      // todo offhand
-      this.bot.swingArm('right')
-      this.bot.emit('botArmSwingStart', 'right')
-      this.bot.emit('botArmSwingEnd', 'right')
     }
 
     this.rightClickDelay = 0
