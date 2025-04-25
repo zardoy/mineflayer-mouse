@@ -80,6 +80,9 @@ function createMockBot(testState: TestState): Bot {
     bot.deactivateItem = vi.fn().mockImplementation(() => {
         testState.methodCalls.push('deactivateItem')
     })
+    bot.inventory = {
+        slots: []
+    } as any
 
     return bot
 }
