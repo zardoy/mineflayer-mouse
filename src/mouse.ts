@@ -246,7 +246,9 @@ export class MouseManager {
     if (entity) {
       if (this.buttons[0] && !this.lastButtons[0]) {
         // Left click - attack
-        this.bot.attack(entity)
+        this.bot.emit('botArmSwingStart', 'right')
+        this.bot.emit('botArmSwingEnd', 'right')
+        this.bot.attack(entity) // already swings to server
       } else if (this.buttons[2] && !this.lastButtons[2]) {
         // Right click - interact
         this.activateEntity(entity)
