@@ -36,13 +36,13 @@
         "prismarine-block": "^1.21.0",
         "prismarine-entity": "^2.5.0",
         "typescript": "^5.7.3",
-        "vec3": "^0.1.10"
+        "vec3": "^0.1.10",
+        "vitest": "^3.0.6"
     },
     "dependencies": {
         "change-case": "^5.4.4",
         "debug": "^4.4.0",
         "prismarine-item": "^1.16.0",
-        "prismarine-world": "^3.6.3",
-        "vitest": "^3.0.6"
+        "prismarine-world": "^3.6.3"
     }
 }
