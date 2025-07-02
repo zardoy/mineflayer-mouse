@@ -1,8 +1,8 @@
 import fs from 'fs'
-import MinecraftData, { supportedVersions } from 'minecraft-data'
+import MinecraftData, { versions } from 'minecraft-data'
 import { isItemActivatable } from '../src/itemActivatable'
 
-const latestVersion = supportedVersions.pc.slice(-1)[0]
+const latestVersion = versions.pc[0].minecraftVersion
 console.log('latestVersion', latestVersion)
 const data = MinecraftData(latestVersion)
 

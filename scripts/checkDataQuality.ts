@@ -1,7 +1,7 @@
-import MinecraftData, { supportedVersions } from 'minecraft-data'
+import MinecraftData, { versions } from 'minecraft-data'
 import entityData from '../src/entityData.json'
 
-const latestVersion = supportedVersions.pc.slice(-1)[0]
+const latestVersion = versions.pc[0].minecraftVersion
 console.log('Latest Minecraft version:', latestVersion)
 const mcData = MinecraftData(latestVersion)
 
@@ -9,7 +9,7 @@ const mcData = MinecraftData(latestVersion)
 const mcDataEntities = new Set(Object.values(mcData.entities).map(e => e.name))
 
 // Get all entities from our entityData
-const ourEntities = new Set([...entityData.attackable, ...entityData.notAttackable])
+const ourEntities = new Set([...entityData.attackable, ...entityData.notAttackable, ...Object.keys(entityData.entityRenames)])
 
 // Find entities that are in minecraft-data but not in our entityData
 const missingEntities = [...mcDataEntities].filter(entity => !ourEntities.has(entity))
