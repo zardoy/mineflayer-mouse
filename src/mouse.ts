@@ -410,7 +410,7 @@ export class MouseManager {
           this.bot.emit('mouseBlockPlaced', cursorBlock, direction, delta, false, true)
         }
         // always emit block_place when looking at block
-        this.placeBlock(cursorBlock, direction, delta, false, undefined)
+        this.placeBlock(cursorBlock, direction, delta, false, undefined, !activateMain)
         if (!this.bot.supportFeature('doesntHaveOffHandSlot')) {
           possiblyPlaceOffhand = () => {
             this.placeBlock(cursorBlock, direction, delta, true, undefined, false /* todo. complex. many scenarious like pickaxe or food */)
