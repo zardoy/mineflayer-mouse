@@ -6,7 +6,7 @@ const latestVersion = versions.pc[0].minecraftVersion
 console.log('latestVersion', latestVersion)
 const data = MinecraftData(latestVersion)
 
-const activatableItems = data.itemsArray.filter(item => isItemActivatable(latestVersion, item)).map(item => item.name)
+const activatableItems = data.itemsArray.filter(item => isItemActivatable(latestVersion, item)).map(item => item.name).sort()
 
 // make activatableItems.json
 
@@ -14,4 +14,4 @@ const activatableItemsJson = {
     activatableItems: activatableItems
 }
 
-fs.writeFileSync('./validate-data/activatableItems.json', JSON.stringify(activatableItemsJson, null, 2))
+fs.writeFileSync('./validate-data/activatableItems.json', JSON.stringify(activatableItemsJson, null, 4) + '\n')

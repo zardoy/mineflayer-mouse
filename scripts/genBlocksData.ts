@@ -17,10 +17,12 @@ const blocksNotItems = data.itemsArray.filter(item => {
 const activatableBlocks = blocksNotItems
     .filter(block => isBlockActivatable(block.name))
     .map(block => block.name)
+    .sort()
 
 const nonActivatableBlocks = blocksNotItems
     .filter(block => !isBlockActivatable(block.name))
     .map(block => block.name)
+    .sort()
 
 // Create the JSON structure
 const blocksData = {
@@ -30,6 +32,6 @@ const blocksData = {
 }
 
 // Write to file
-fs.writeFileSync('./validate-data/blockData.json', JSON.stringify(blocksData, null, 2))
+fs.writeFileSync('./validate-data/blockData.json', JSON.stringify(blocksData, null, 4) + '\n')
 
 console.log(`Generated block data for ${activatableBlocks.length} activatable blocks and ${nonActivatableBlocks.length} non-activatable blocks`)
