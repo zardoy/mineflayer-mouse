@@ -55,6 +55,10 @@ export interface CursorState {
 const BLOCK_BREAK_DELAY_TICKS = 5
 
 export class MouseManager {
+  /** stateId - seconds */
+  customBreakTime = new Map<number, number>()
+  customBreakTimeToolAllowance = new Set<string>()
+
   buttons = [false, false, false] as [boolean, boolean, boolean]
   lastButtons = [false, false, false] as [boolean, boolean, boolean]
   cursorBlock: Block | null = null
@@ -432,7 +436,21 @@ export class MouseManager {
     this.rightClickDelay = 0
   }
 
+  getCustomBreakTime(block: Block) {
+    if (this.customBreakTimeToolAllowance.size) {
+      const heldItemId = this.bot.heldItem?.name
+      if (!heldItemId || !this.customBreakTimeToolAllowance.has(heldItemId)) {
+        return undefined
+      }
+    }
+
+    const stateId = block.stateId
+    return this.customBreakTime.get(stateId)
+  }
+
   digTime(block: Block) {
+    const customTime = this.getCustomBreakTime(block)
+    if (customTime !== undefined) return customTime
     const time = this.bot.digTime(block)
     if (!time) return time
     return time
@@ -511,6 +529,10 @@ export class MouseManager {
     const justStartingNewBreak = !this.lastButtons[0]
     const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
     const enoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
+    const hasCustomBreakTime = cursorBlockDiggable && this.getCustomBreakTime(cursorBlockDiggable) !== undefined
+    if (hasCustomBreakTime) {
+      onGround = true // ignore conditions
+    }
     const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
     if (cursorBlockDiggable) {
