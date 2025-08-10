@@ -56,8 +56,8 @@ const BLOCK_BREAK_DELAY_TICKS = 5
 
 export class MouseManager {
   /** stateId - seconds */
-  customBreakTime = new Map<number, number>()
-  customBreakTimeToolAllowance = new Set<string>()
+  customBreakTime: Record<string, number> = {}
+  customBreakTimeToolAllowance: Set<string> = new Set()
 
   buttons = [false, false, false] as [boolean, boolean, boolean]
   lastButtons = [false, false, false] as [boolean, boolean, boolean]
@@ -444,8 +444,7 @@ export class MouseManager {
       }
     }
 
-    const stateId = block.stateId
-    return this.customBreakTime.get(stateId)
+    return this.customBreakTime[block.stateId] ?? this.customBreakTime[block.name] ?? this.customBreakTime['*']
   }
 
   digTime(block: Block) {
