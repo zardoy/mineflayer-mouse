@@ -534,7 +534,7 @@ export class MouseManager {
     const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
     const enoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const hasCustomBreakTime = cursorBlockDiggable && this.getCustomBreakTime(cursorBlockDiggable) !== undefined
-    const breakTimeConditionsChanged = onGround !== this.prevOnGround && !hasCustomBreakTime
+    const breakTimeConditionsChanged = onGround !== this.prevOnGround
 
     if (cursorBlockDiggable) {
       if (
