@@ -497,7 +497,8 @@ export class MouseManager {
       this.stopDiggingCompletely('user stopped')
     }
 
-    const onGround = this.bot.entity?.onGround || this.bot.game.gameMode === 'creative'
+    const hasCustomBreakTime = cursorBlockDiggable ? this.getCustomBreakTime(cursorBlockDiggable) !== undefined : false
+    const onGround = this.bot.entity?.onGround || this.bot.game.gameMode === 'creative' || hasCustomBreakTime
     this.prevOnGround ??= onGround // todo this should be fixed in mineflayer to involve correct calculations when this changes as this is very important when mining straight down
 
     this.updateBreakingBlockState(cursorBlockDiggable)
@@ -532,14 +533,14 @@ export class MouseManager {
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
     const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
-    const enoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
+    const diggingCompletedEnoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const hasCustomBreakTime = cursorBlockDiggable && this.getCustomBreakTime(cursorBlockDiggable) !== undefined
-    const breakTimeConditionsChanged = onGround !== this.prevOnGround
+    const breakStartConditionsChanged = onGround !== this.prevOnGround && !this.currentBreakBlock
 
     if (cursorBlockDiggable) {
       if (
         onGround
-        && (justStartingNewBreak || (enoughTimePassed && (blockChanged || breakTimeConditionsChanged)))
+        && (justStartingNewBreak || (diggingCompletedEnoughTimePassed && (blockChanged || breakStartConditionsChanged)))
       ) {
         this.startBreaking(cursorBlockDiggable)
       }

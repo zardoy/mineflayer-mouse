@@ -243,6 +243,22 @@ describe('MouseManager', () => {
             ASSERT_ACTIONS(['stopdig'])
         })
 
+        it('Survival jump on the same block (conditions change but no dig time change)', () => {
+            const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
+            LEFT_START()
+            ASSERT_ACTIONS(['stopdig', 'startdig'])
+            vi.advanceTimersByTime(100)
+            UPDATE()
+            bot.entity.onGround = false
+            UPDATE()
+            // we dont change dig time in this test!
+            ASSERT_ACTIONS([])
+            bot.entity.onGround = true
+            UPDATE()
+            ASSERT_ACTIONS([])
+            LEFT_END()
+        })
+
         it('Validate events after in-mid block change', () => {
             const block1 = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
             LEFT_START()
