@@ -564,7 +564,7 @@ export class MouseManager {
     const vecArray = [new Vec3(0, -1, 0), new Vec3(0, 1, 0), new Vec3(0, 0, -1), new Vec3(0, 0, 1), new Vec3(-1, 0, 0), new Vec3(1, 0, 0)]
     this.bot.dig(
       //@ts-ignore
-      block, 'ignore', vecArray[block.face]
+      block, 'ignore', vecArray[block.face], block.face
     ).catch((err) => {
       if (err.message === 'Digging aborted') return
       throw err
