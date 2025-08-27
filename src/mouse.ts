@@ -31,6 +31,8 @@ export interface BotPluginSettings {
   blockPlacePredictionCheckEntities?: boolean
   blockPlacePredictionHandler?: BlockPlacePredictionOverride
   blockInteractionHandlers?: Record<string, BlockInteractionHandler>
+
+  noBreakPositiveUpdate?: boolean
 }
 
 const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
@@ -552,7 +554,38 @@ export class MouseManager {
     }
   }
 
+  setConfigFromPacket(packet: any) {
+    if (packet.customBreakTime) {
+      this.customBreakTime = packet.customBreakTime
+    }
+    if (packet.customBreakTimeToolAllowance) {
+      this.customBreakTimeToolAllowance = new Set(packet.customBreakTimeToolAllowance)
+    }
+    if (packet.noBreakPositiveUpdate !== undefined) {
+      this.settings.noBreakPositiveUpdate = packet.noBreakPositiveUpdate
+    }
+
+    if (packet.blockPlacePrediction !== undefined) {
+      this.settings.blockPlacePrediction = packet.blockPlacePrediction
+    }
+    if (packet.blockPlacePredictionDelay !== undefined) {
+      this.settings.blockPlacePredictionDelay = packet.blockPlacePredictionDelay
+    }
+    if (packet.blockPlacePredictionCheckEntities !== undefined) {
+      this.settings.blockPlacePredictionCheckEntities = packet.blockPlacePredictionCheckEntities
+    }
+  }
+
   private startBreaking(block: Block) {
+    // patch mineflayer
+    if (this.settings.noBreakPositiveUpdate && !this.bot['_updateBlockStateOld']) {
+      this.bot['_updateBlockStateOld'] = this.bot['_updateBlockState']
+      this.bot['_updateBlockState'] = () => {}
+    } else if (!this.settings.noBreakPositiveUpdate && this.bot['_updateBlockStateOld']) {
+      this.bot['_updateBlockState'] = this.bot['_updateBlockStateOld']
+      delete this.bot['_updateBlockStateOld']
+    }
+
     this.lastDugBlock = null
     this.debugDigStatus = 'breaking'
     this.currentDigTime = this.digTime(block)
