@@ -63,10 +63,10 @@ const BLOCK_BREAK_DELAY_TICKS = 5
  * @param entity The entity to check
  * @returns true if the entity is a minecart or boat
  */
-function isVehicleEntity(entity: Entity): boolean {
+function isProblematicVehicleEntity(entity: Entity): boolean {
   if (!entity.name) return false
   const name = entity.name.toLowerCase()
-  return name.includes('minecart') || name.includes('boat')
+  return name === 'minecart' || name.includes('boat')
 }
 
 export class MouseManager {
@@ -272,12 +272,12 @@ export class MouseManager {
         // Left click - attack
         this.bot.emit('botArmSwingStart', 'right')
         this.bot.emit('botArmSwingEnd', 'right')
-        this.bot.attack(entity) // already swings to server
+        this.bot.attack(entity) // already swings to servers
       } else if (this.buttons[2] && !this.lastButtons[2]) {
         // Right click - interact
         // Prevent activation of vehicles (minecarts/boats) to avoid getting stuck
         const preventVehicle = this.settings.preventVehicleInteraction !== false
-        if (preventVehicle && isVehicleEntity(entity)) {
+        if (preventVehicle && isProblematicVehicleEntity(entity)) {
           // Skip activation with vehicles to prevent getting stuck inside them
           // which could cause server kick for flying
           console.warn(`Prevented vehicle interaction with ${entity.name} to avoid getting stuck because of Mineflayer bug`)
