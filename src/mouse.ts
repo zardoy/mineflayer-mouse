@@ -33,6 +33,8 @@ export interface BotPluginSettings {
   blockInteractionHandlers?: Record<string, BlockInteractionHandler>
 
   noBreakPositiveUpdate?: boolean
+  /** @default true */
+  preventVehicleInteraction?: boolean
 }
 
 const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
@@ -55,6 +57,17 @@ export interface CursorState {
 // The delay is always 5 ticks between blocks
 // https://github.com/extremeheat/extracted_minecraft_data/blob/158aff8ad2a9051505e05703f554af8e50741d69/client/net/minecraft/client/multiplayer/MultiPlayerGameMode.java#L200
 const BLOCK_BREAK_DELAY_TICKS = 5
+
+/**
+ * Checks if an entity is a vehicle (minecart or boat) that could cause the bot to get stuck
+ * @param entity The entity to check
+ * @returns true if the entity is a minecart or boat
+ */
+function isVehicleEntity(entity: Entity): boolean {
+  if (!entity.name) return false
+  const name = entity.name.toLowerCase()
+  return name.includes('minecart') || name.includes('boat')
+}
 
 export class MouseManager {
   /** stateId - seconds */
@@ -262,7 +275,15 @@ export class MouseManager {
         this.bot.attack(entity) // already swings to server
       } else if (this.buttons[2] && !this.lastButtons[2]) {
         // Right click - interact
-        this.activateEntity(entity)
+        // Prevent activation of vehicles (minecarts/boats) to avoid getting stuck
+        const preventVehicle = this.settings.preventVehicleInteraction !== false
+        if (preventVehicle && isVehicleEntity(entity)) {
+          // Skip activation with vehicles to prevent getting stuck inside them
+          // which could cause server kick for flying
+          console.warn(`Prevented vehicle interaction with ${entity.name} to avoid getting stuck because of Mineflayer bug`)
+        } else {
+          this.activateEntity(entity)
+        }
       }
     } else {
       if (this.buttons[2] && (this.rightClickDelay >= 4 || !this.lastButtons[2])) {
@@ -573,6 +594,9 @@ export class MouseManager {
     }
     if (packet.blockPlacePredictionCheckEntities !== undefined) {
       this.settings.blockPlacePredictionCheckEntities = packet.blockPlacePredictionCheckEntities
+    }
+    if (packet.preventVehicleInteraction !== undefined) {
+      this.settings.preventVehicleInteraction = packet.preventVehicleInteraction
     }
   }
 
