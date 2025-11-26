@@ -35,6 +35,8 @@ export interface BotPluginSettings {
   noBreakPositiveUpdate?: boolean
   /** @default true */
   preventVehicleInteraction?: boolean
+
+  sameTickStateCache?: boolean
 }
 
 const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
@@ -77,6 +79,8 @@ export class MouseManager {
   buttons = [false, false, false] as [boolean, boolean, boolean]
   lastButtons = [false, false, false] as [boolean, boolean, boolean]
   cursorBlock: Block | null = null
+  tick: number = 0
+  private cursorStateCache: { tick: number, state: CursorState } | null = null
   prevBreakState: number | null = null
   currentDigTime: number | null = null
   prevOnGround: boolean | null = null
@@ -134,6 +138,7 @@ export class MouseManager {
 
   private initBotEvents() {
     this.bot.on('physicsTick', () => {
+      this.tick++
       if (this.rightClickDelay < 4) this.rightClickDelay++
       this.update()
     })
@@ -297,6 +302,10 @@ export class MouseManager {
   }
 
   getCursorState(): CursorState {
+    if (this.settings.sameTickStateCache !== false && this.cursorStateCache?.tick === this.tick) {
+      return this.cursorStateCache.state
+    }
+
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
     const entity = this.bot.entity ? raycastEntity(this.bot) : null
@@ -324,7 +333,15 @@ export class MouseManager {
     }
 
     this.cursorBlock = cursorBlock
-    return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
+    const state: CursorState = { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
+
+    if (this.tick !== undefined) {
+      this.cursorStateCache = { tick: this.tick, state }
+    } else {
+      this.cursorStateCache = null
+    }
+
+    return state
   }
 
   async placeBlock(cursorBlock: Block, direction: Vec3, delta: Vec3, offhand: boolean, forceLook: 'ignore' | 'lookAt' | 'lookAtForce' = 'ignore', doClientSwing = true) {
