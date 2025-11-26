@@ -345,11 +345,13 @@ describe('MouseManager', () => {
             ASSERT_ACTIONS(['stopdig', 'startdig'])
 
             SET_CURSOR_ENTITY()
+            bot.emit('physicsTick')
             UPDATE()
             expect(bot.mouse.debugDigStatus).toBe('stopped by entity interference')
             ASSERT_ACTIONS(['stopdig'])
 
             CLEAR_CURSOR_ENTITY()
+            bot.emit('physicsTick')
             vi.advanceTimersByTime(400)
             UPDATE()
             ASSERT_ACTIONS(['stopdig', 'startdig'])

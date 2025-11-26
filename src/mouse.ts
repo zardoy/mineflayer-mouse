@@ -35,8 +35,6 @@ export interface BotPluginSettings {
   noBreakPositiveUpdate?: boolean
   /** @default true */
   preventVehicleInteraction?: boolean
-
-  sameTickStateCache?: boolean
 }
 
 const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
@@ -80,7 +78,7 @@ export class MouseManager {
   lastButtons = [false, false, false] as [boolean, boolean, boolean]
   cursorBlock: Block | null = null
   tick: number = 0
-  private cursorStateCache: { tick: number, state: CursorState } | null = null
+  private entityRaycastCache: { tick: number, entity: Entity | null } | null = null
   prevBreakState: number | null = null
   currentDigTime: number | null = null
   prevOnGround: boolean | null = null
@@ -302,13 +300,9 @@ export class MouseManager {
   }
 
   getCursorState(): CursorState {
-    if (this.settings.sameTickStateCache !== false && this.cursorStateCache?.tick === this.tick) {
-      return this.cursorStateCache.state
-    }
-
     const inSpectator = this.bot.game.gameMode === 'spectator'
     const inAdventure = this.bot.game.gameMode === 'adventure'
-    const entity = this.bot.entity ? raycastEntity(this.bot) : null
+    const entity = this.getCachedRaycastEntity()
 
     // If entity is found, we should stop any current digging
     let cursorBlock = this.bot.entity ? this.bot.blockAtCursor(5) : null
@@ -336,15 +330,17 @@ export class MouseManager {
     }
 
     this.cursorBlock = cursorBlock
-    const state: CursorState = { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
+    return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
+  }
 
-    if (this.tick !== undefined) {
-      this.cursorStateCache = { tick: this.tick, state }
-    } else {
-      this.cursorStateCache = null
+  private getCachedRaycastEntity(): Entity | null {
+    if (!this.bot.entity) return null
+    if (this.entityRaycastCache?.tick === this.tick) {
+      return this.entityRaycastCache.entity
     }
-
-    return state
+    const entity = raycastEntity(this.bot)
+    this.entityRaycastCache = { tick: this.tick, entity }
+    return entity
   }
 
   async placeBlock(cursorBlock: Block, direction: Vec3, delta: Vec3, offhand: boolean, forceLook: 'ignore' | 'lookAt' | 'lookAtForce' = 'ignore', doClientSwing = true) {
