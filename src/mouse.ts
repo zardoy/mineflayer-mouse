@@ -324,9 +324,12 @@ export class MouseManager {
       cursorBlockDiggable = null
     }
 
-    const cursorChanged = cursorBlock && this.cursorBlock ?
-      !this.cursorBlock.position.equals(cursorBlock.position) :
-      this.cursorBlock !== cursorBlock
+    let cursorChanged = this.cursorBlock !== cursorBlock
+    if (cursorBlock && this.cursorBlock) {
+      const samePos = this.cursorBlock.position.equals(cursorBlock.position)
+      const sameState = this.cursorBlock.stateId === cursorBlock.stateId
+      cursorChanged = !(samePos && sameState)
+    }
 
     if (cursorChanged) {
       this.bot.emit('highlightCursorBlock', cursorBlock ? { block: cursorBlock } : undefined)
