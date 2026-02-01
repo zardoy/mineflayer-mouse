@@ -571,7 +571,9 @@ export class MouseManager {
 
   private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
-    const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position))
+    // Allow resume when stopped and still on a diggable block (e.g. server restored block at same position)
+    const stoppedWithBlock = this.breakStartTime === undefined && !!cursorBlockDiggable
+    const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position)) || stoppedWithBlock
     const diggingCompletedEnoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const hasCustomBreakTime = cursorBlockDiggable && this.getCustomBreakTime(cursorBlockDiggable) !== undefined
     const breakStartConditionsChanged = onGround !== this.prevOnGround && !this.currentBreakBlock

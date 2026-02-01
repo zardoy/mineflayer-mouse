@@ -359,6 +359,25 @@ describe('MouseManager', () => {
             LEFT_END()
             ASSERT_ACTIONS(['stopdig'])
         })
+
+        it('resumes breaking when block stays at same position after diggingCompleted (e.g. oneblock)', () => {
+            const pos = new Vec3(1, 1, 1)
+            const block = SET_CURSOR_BLOCK(pos)
+
+            LEFT_START()
+            ASSERT_ACTIONS(['stopdig', 'startdig'])
+
+            // Server completes break; may place same block again (oneblock) or new block at same position
+            SERVER_DIG_COMPLETE(block)
+
+            // Cursor still at same position; after 5-tick delay we should resume
+            vi.advanceTimersByTime(260)
+            bot.emit('physicsTick')
+            ASSERT_ACTIONS(['startdig'])
+
+            LEFT_END()
+            ASSERT_ACTIONS(['stopdig'])
+        })
     })
 
     describe('Entity Interaction', () => {
