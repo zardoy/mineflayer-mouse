@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
+      - name: Update npm
+        run: npm install -g npm@latest
       - name: Install & Enable Corepack
         run: npm install -g corepack && corepack enable
       - name: Install Dependencies
