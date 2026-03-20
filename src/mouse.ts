@@ -8,6 +8,7 @@ import { debug } from './debug'
 import { raycastEntity } from './entityRaycast'
 import { BlockPlacePredictionOverride, botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
 import { isItemActivatable } from './itemActivatable'
+import { isBlockActivatable } from './itemBlocksStatic'
 
 export interface BlockInteractionHandler {
   test: (block: Block) => boolean
@@ -51,6 +52,8 @@ export interface CursorState {
   cursorBlock: Block | null
   cursorBlockDiggable: Block | null
   cursorChanged: boolean
+  /** True when block position changed (not just stateId); used to avoid spurious stops from server sync */
+  cursorPositionChanged: boolean
   entity: Entity | null
 }
 
@@ -262,7 +265,7 @@ export class MouseManager {
 
   update() {
     this.beforeUpdateChecks()
-    const { cursorBlock, cursorBlockDiggable, cursorChanged, entity } = this.getCursorState()
+    const { cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged, entity } = this.getCursorState()
 
     // Handle item deactivation
     if (this.itemBeingUsed && !this.buttons[2]) {
@@ -293,7 +296,7 @@ export class MouseManager {
         this.updatePlaceInteract(cursorBlock)
       }
 
-      this.updateBreaking(cursorBlock, cursorBlockDiggable, cursorChanged)
+      this.updateBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged)
     }
 
     this.updateButtonStates()
@@ -319,10 +322,14 @@ export class MouseManager {
     }
 
     let cursorChanged = this.cursorBlock !== cursorBlock
+    let cursorPositionChanged = false
     if (cursorBlock && this.cursorBlock) {
       const samePos = this.cursorBlock.position.equals(cursorBlock.position)
       const sameState = this.cursorBlock.stateId === cursorBlock.stateId
       cursorChanged = !(samePos && sameState)
+      cursorPositionChanged = !samePos
+    } else {
+      cursorPositionChanged = cursorChanged
     }
 
     if (cursorChanged) {
@@ -330,7 +337,7 @@ export class MouseManager {
     }
 
     this.cursorBlock = cursorBlock
-    return { cursorBlock, cursorBlockDiggable, cursorChanged, entity }
+    return { cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged, entity }
   }
 
   private getCachedRaycastEntity(): Entity | null {
@@ -459,9 +466,12 @@ export class MouseManager {
         }
         // always emit block_place when looking at block
         this.placeBlock(cursorBlock, direction, delta, false, undefined, !activateMain)
-        if (!this.bot.supportFeature('doesntHaveOffHandSlot')) {
+        // Vanilla: offhand block_place only when block is not activatable, or when sneaking (item use takes priority)
+        const blockActivatable = isBlockActivatable(cursorBlock.name)
+        const shouldPlaceOffhand = !blockActivatable || this.bot.getControlState('sneak')
+        if (!this.bot.supportFeature('doesntHaveOffHandSlot') && shouldPlaceOffhand) {
           possiblyPlaceOffhand = () => {
-            this.placeBlock(cursorBlock, direction, delta, true, undefined, false /* todo. complex. many scenarious like pickaxe or food */)
+            this.placeBlock(cursorBlock, direction, delta, true, undefined, false)
           }
         }
       }
@@ -526,8 +536,9 @@ export class MouseManager {
     }
   }
 
-  private updateBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean) {
-    if (cursorChanged) {
+  private updateBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, cursorPositionChanged: boolean) {
+    // Only stop when block position changed - stateId-only changes (server sync) can cause spurious stops and stuck state
+    if (cursorPositionChanged) {
       this.stopDiggingCompletely('block change delay', !!cursorBlockDiggable)
     }
 
@@ -544,7 +555,7 @@ export class MouseManager {
 
     // Start break
     if (this.buttons[0]) {
-      this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, onGround)
+      this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged, onGround)
     }
 
     this.prevOnGround = onGround
@@ -569,11 +580,11 @@ export class MouseManager {
     }
   }
 
-  private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, onGround: boolean) {
+  private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, cursorPositionChanged: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
     // Allow resume when stopped and still on a diggable block (e.g. server restored block at same position)
     const stoppedWithBlock = this.breakStartTime === undefined && !!cursorBlockDiggable
-    const blockChanged = cursorChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position)) || stoppedWithBlock
+    const blockChanged = cursorPositionChanged || (this.lastDugBlock && cursorBlock && !this.lastDugBlock.equals(cursorBlock.position)) || stoppedWithBlock
     const diggingCompletedEnoughTimePassed = !this.lastDugTime || (Date.now() - this.lastDugTime > BLOCK_BREAK_DELAY_TICKS * 1000 / 20)
     const hasCustomBreakTime = cursorBlockDiggable && this.getCustomBreakTime(cursorBlockDiggable) !== undefined
     const breakStartConditionsChanged = onGround !== this.prevOnGround && !this.currentBreakBlock
