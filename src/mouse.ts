@@ -9,6 +9,7 @@ import { raycastEntity } from './entityRaycast'
 import { BlockPlacePredictionOverride, botTryPlaceBlockPrediction, directionToVector } from './blockPlacePrediction'
 import { isItemActivatable } from './itemActivatable'
 import { isBlockActivatable } from './itemBlocksStatic'
+import MinecraftData from 'minecraft-data'
 
 export interface BlockInteractionHandler {
   test: (block: Block) => boolean
@@ -70,6 +71,41 @@ function isProblematicVehicleEntity(entity: Entity): boolean {
   if (!entity.name) return false
   const name = entity.name.toLowerCase()
   return name === 'minecart' || name.includes('boat')
+}
+
+/** Matches anvil / chipped_anvil / damaged_anvil block ids */
+const matchAnvilBlockType = (type: string) => /minecraft:(?:chipped_|damaged_)?anvil/.test(type)
+
+const matchEnchantmentTableBlockType = (type: string) => type.startsWith('minecraft:enchant')
+
+function blockTypeId(block: Block): string {
+  return block.name.includes(':') ? block.name : `minecraft:${block.name}`
+}
+
+/** True if item is a block that exists in the registry (placeable block item) */
+function isPlaceableBlockItem(bot: Bot, item: { name: string } | null | undefined): boolean {
+  if (!item) return false
+  try {
+    return MinecraftData(bot.version).blocksByName[item.name] !== undefined
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Use openAnvil / openEnchantmentTable instead of block_place when not trying to place on the block:
+ * vanilla: sneak + block in hand places on the block; otherwise open GUI.
+ */
+function shouldOpenBlockGuiInsteadOfPlacePackets(bot: Bot): boolean {
+  const sneak = bot.getControlState('sneak')
+  const mainBlock = isPlaceableBlockItem(bot, bot.heldItem)
+  const offBlock = bot.supportFeature('doesntHaveOffHandSlot') ? false : isPlaceableBlockItem(bot, bot.inventory.slots[45])
+  return !sneak || (!mainBlock && !offBlock)
+}
+
+function isVillagerForTrade(entity: Entity): boolean {
+  const n = entity.name?.toLowerCase()
+  return n === 'villager' || n === 'zombie_villager'
 }
 
 export class MouseManager {
@@ -281,14 +317,18 @@ export class MouseManager {
         this.bot.attack(entity) // already swings to servers
       } else if (this.buttons[2] && !this.lastButtons[2]) {
         // Right click - interact
-        // Prevent activation of vehicles (minecarts/boats) to avoid getting stuck
-        const preventVehicle = this.settings.preventVehicleInteraction !== false
-        if (preventVehicle && isProblematicVehicleEntity(entity)) {
-          // Skip activation with vehicles to prevent getting stuck inside them
-          // which could cause server kick for flying
-          console.warn(`Prevented vehicle interaction with ${entity.name} to avoid getting stuck because of Mineflayer bug`)
+        if (isVillagerForTrade(entity) && typeof this.bot.openVillager === 'function') {
+          void this.bot.openVillager!(entity).catch((err: unknown) => this.bot.emit('error', err instanceof Error ? err : new Error(String(err))))
         } else {
-          this.activateEntity(entity)
+          // Prevent activation of vehicles (minecarts/boats) to avoid getting stuck
+          const preventVehicle = this.settings.preventVehicleInteraction !== false
+          if (preventVehicle && isProblematicVehicleEntity(entity)) {
+            // Skip activation with vehicles to prevent getting stuck inside them
+            // which could cause server kick for flying
+            console.warn(`Prevented vehicle interaction with ${entity.name} to avoid getting stuck because of Mineflayer bug`)
+          } else {
+            this.activateEntity(entity)
+          }
         }
       }
     } else {
@@ -425,6 +465,20 @@ export class MouseManager {
   }
 
   private updatePlaceInteract(cursorBlock: Block | null) {
+    if (cursorBlock && shouldOpenBlockGuiInsteadOfPlacePackets(this.bot)) {
+      const typeId = blockTypeId(cursorBlock)
+      if (matchAnvilBlockType(typeId) && typeof this.bot.openAnvil === 'function') {
+        void this.bot.openAnvil!(cursorBlock).catch((err: unknown) => this.bot.emit('error', err instanceof Error ? err : new Error(String(err))))
+        this.rightClickDelay = 0
+        return
+      }
+      if (matchEnchantmentTableBlockType(typeId) && typeof this.bot.openEnchantmentTable === 'function') {
+        void this.bot.openEnchantmentTable!(cursorBlock).catch((err: unknown) => this.bot.emit('error', err instanceof Error ? err : new Error(String(err))))
+        this.rightClickDelay = 0
+        return
+      }
+    }
+
     // Check for special block handlers first
     let handled = false
     if (!this.bot.getControlState('sneak') && cursorBlock) {
