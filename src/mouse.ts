@@ -37,6 +37,15 @@ export interface BotPluginSettings {
   noBreakPositiveUpdate?: boolean
   /** @default true */
   preventVehicleInteraction?: boolean
+
+  /** @default true */
+  useMineflayerInteractMethods?: boolean
+  /**
+   * When true, allow starting a break while not on ground (mid-air).
+   * Swimming in water without ground contact is always allowed without this flag.
+   * @default false
+   */
+  allowInAirMining?: boolean
 }
 
 const defaultBlockHandlers: Record<string, BlockInteractionHandler> = {
@@ -106,6 +115,19 @@ function shouldOpenBlockGuiInsteadOfPlacePackets(bot: Bot): boolean {
 function isVillagerForTrade(entity: Entity): boolean {
   const n = entity.name?.toLowerCase()
   return n === 'villager' || n === 'zombie_villager'
+}
+
+/** True if feet or head are in water / bubble column (typical swimming case when `onGround` is false). */
+function isEntityInWater(bot: Bot): boolean {
+  return bot.entity?.['isInWater']
+}
+
+/** Whether vanilla-like mining may start: on ground, in water while airborne, or mid-air when setting allows. */
+function canStartBreakMining(bot: Bot, onGround: boolean, allowInAirMining: boolean | undefined): boolean {
+  if (onGround) return true
+  if (allowInAirMining === true) return true
+  if (isEntityInWater(bot) && !onGround) return true
+  return false
 }
 
 export class MouseManager {
@@ -317,7 +339,7 @@ export class MouseManager {
         this.bot.attack(entity) // already swings to servers
       } else if (this.buttons[2] && !this.lastButtons[2]) {
         // Right click - interact
-        if (isVillagerForTrade(entity) && typeof this.bot.openVillager === 'function') {
+        if (isVillagerForTrade(entity) && typeof this.bot.openVillager === 'function' && this.settings.useMineflayerInteractMethods !== false) {
           void this.bot.openVillager!(entity).catch((err: unknown) => this.bot.emit('error', err instanceof Error ? err : new Error(String(err))))
         } else {
           // Prevent activation of vehicles (minecarts/boats) to avoid getting stuck
@@ -465,7 +487,7 @@ export class MouseManager {
   }
 
   private updatePlaceInteract(cursorBlock: Block | null) {
-    if (cursorBlock && shouldOpenBlockGuiInsteadOfPlacePackets(this.bot)) {
+    if (cursorBlock && shouldOpenBlockGuiInsteadOfPlacePackets(this.bot) && this.settings.useMineflayerInteractMethods !== false) {
       const typeId = blockTypeId(cursorBlock)
       if (matchAnvilBlockType(typeId) && typeof this.bot.openAnvil === 'function') {
         void this.bot.openAnvil!(cursorBlock).catch((err: unknown) => this.bot.emit('error', err instanceof Error ? err : new Error(String(err))))
@@ -603,13 +625,14 @@ export class MouseManager {
 
     const hasCustomBreakTime = cursorBlockDiggable ? this.getCustomBreakTime(cursorBlockDiggable) !== undefined : false
     const onGround = this.bot.entity?.onGround || this.bot.game.gameMode === 'creative' || hasCustomBreakTime
+    const canStartBreak = canStartBreakMining(this.bot, onGround, this.settings.allowInAirMining)
     this.prevOnGround ??= onGround // todo this should be fixed in mineflayer to involve correct calculations when this changes as this is very important when mining straight down
 
     this.updateBreakingBlockState(cursorBlockDiggable)
 
     // Start break
     if (this.buttons[0]) {
-      this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged, onGround)
+      this.maybeStartBreaking(cursorBlock, cursorBlockDiggable, cursorChanged, cursorPositionChanged, canStartBreak, onGround)
     }
 
     this.prevOnGround = onGround
@@ -634,7 +657,7 @@ export class MouseManager {
     }
   }
 
-  private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, cursorPositionChanged: boolean, onGround: boolean) {
+  private maybeStartBreaking(cursorBlock: Block | null, cursorBlockDiggable: Block | null, cursorChanged: boolean, cursorPositionChanged: boolean, canStartBreak: boolean, onGround: boolean) {
     const justStartingNewBreak = !this.lastButtons[0]
     // Allow resume when stopped and still on a diggable block (e.g. server restored block at same position)
     const stoppedWithBlock = this.breakStartTime === undefined && !!cursorBlockDiggable
@@ -645,7 +668,7 @@ export class MouseManager {
 
     if (cursorBlockDiggable) {
       if (
-        onGround
+        canStartBreak
         && (justStartingNewBreak || (diggingCompletedEnoughTimePassed && (blockChanged || breakStartConditionsChanged)))
       ) {
         this.startBreaking(cursorBlockDiggable)
@@ -680,6 +703,9 @@ export class MouseManager {
     }
     if (packet.preventVehicleInteraction !== undefined) {
       this.settings.preventVehicleInteraction = packet.preventVehicleInteraction
+    }
+    if (packet.allowInAirMining !== undefined) {
+      this.settings.allowInAirMining = packet.allowInAirMining
     }
   }
 
