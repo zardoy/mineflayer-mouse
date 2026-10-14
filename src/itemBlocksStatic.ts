@@ -31,6 +31,8 @@ export const activatableBlockWithoutItemPatterns = [
   /^(dragon_egg|flower_pot|sweet_berry_bush|cave_vines.*|.*candle.*)$/,
   // Misc
   /^(cake|decorated_pot|crafter|trial_spawner|vault)$/,
+  // CopperGolemStatueBlock (1.21.9+): useItemOn cycles the pose with any item but an axe, which then acts itself
+  /^.*copper_golem_statue$/,
   // fence (ignore)
   // sign (ignore)
 ] as const
