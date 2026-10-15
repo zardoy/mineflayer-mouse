@@ -6,6 +6,8 @@ import { Entity } from 'prismarine-entity'
 import { MouseManager, inject } from '../src/mouse'
 import { EventEmitter } from 'events'
 import * as entityRaycast from '../src/entityRaycast'
+import { botTryPlaceBlockPrediction } from '../src/blockPlacePrediction'
+import MinecraftData from 'minecraft-data'
 
 // Track method calls and events
 interface TestState {
@@ -496,6 +498,43 @@ describe('MouseManager', () => {
             RIGHT_END()
             PHYSICS_TICK()
             ASSERT_ACTIONS([])
+        })
+
+        describe('off-hand use', () => {
+            beforeEach(() => {
+                // a real version's features, so the off-hand slot exists
+                bot.supportFeature = MinecraftData(bot.version).supportFeature as any
+                bot.heldItem = null
+            })
+
+            const usedHands = () => vi.mocked(bot._client.write).mock.calls
+                .filter(([name]) => name === 'block_place')
+                .map(([, data]) => data.hand)
+
+            it('tries the off-hand on a block that does not take the click', () => {
+                SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
+
+                RIGHT_START()
+                PHYSICS_TICK()
+                expect(usedHands()).toEqual([0, 1])
+            })
+
+            it('does not try the off-hand on a copper golem statue, which takes the click', () => {
+                // vanilla cycles the pose once per click; an off-hand use_item_on cycled it a second time
+                SET_CURSOR_BLOCK(new Vec3(1, 1, 1)).name = 'copper_golem_statue'
+
+                RIGHT_START()
+                PHYSICS_TICK()
+                expect(usedHands()).toEqual([0])
+            })
+        })
+
+        it('does not predict placing the held block on a copper golem statue', () => {
+            const statue = SET_CURSOR_BLOCK(new Vec3(1, 1, 1))
+            statue.name = 'oxidized_copper_golem_statue'
+
+            expect(botTryPlaceBlockPrediction(bot, statue, 1, new Vec3(0.5, 1, 0.5), true, 0, null, false)).toBe(false)
+            expect(bot.world.setBlock).not.toHaveBeenCalled()
         })
     })
 
